@@ -22,7 +22,7 @@
     // Polyfill for process.env to prevent crashes on Netlify/Browser
     window.process = {
       env: {
-        API_KEY: 'AIzaSyAVIfaNjQ5C7qbEby7ArBO43OsZEE3oJok' // Empty key prevents crash; Service handles missing key gracefully
+        API_KEY: '' // Empty key prevents crash; Service handles missing key gracefully
       }
     };
   </script>
