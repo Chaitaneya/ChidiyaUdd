@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#020617" />
+
+  <!-- PWA / Mobile App Settings -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="application-name" content="Chidiya Udd" />
+  <meta name="apple-mobile-web-app-title" content="Chidiya Udd" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3069/3069172.png" />
+
+  <title>Chidiya Udd</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Polyfill for process.env to prevent crashes on Netlify/Browser
+    window.process = {
+      env: {
+        API_KEY: 'AIzaSyAVIfaNjQ5C7qbEby7ArBO43OsZEE3oJok' // Empty key prevents crash; Service handles missing key gracefully
+      }
+    };
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+    body {
+      font-family: 'VT323', monospace;
+      overscroll-behavior: none;
+      background-color: #020617;
+      /* Slate 950 fallback */
+    }
+
+    /* Retro Night Sky Gradient - Darker & Lower Contrast */
+    .theme-bg {
+      background: linear-gradient(180deg, #020617 0%, #172554 50%, #1e40af 100%);
+    }
+
+    .font-retro {
+      font-family: 'Press Start 2P', cursive;
+    }
+
+    .wiggle {
+      animation: wiggle 0.5s ease-in-out infinite;
+    }
+
+    @keyframes wiggle {
+
+      0%,
+      100% {
+        transform: rotate(-3deg);
+      }
+
+      50% {
+        transform: rotate(3deg);
+      }
+    }
+
+    .pop-in {
+      animation: pop 0.2s steps(4);
+    }
+
+    @keyframes pop {
+      0% {
+        transform: scale(0.5);
+        opacity: 0;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* Pixelated Feather Confetti */
+    @keyframes float-down {
+      0% {
+        transform: translateY(-50px) rotate(0deg);
+        opacity: 1;
+      }
+
+      20% {
+        transform: translateX(10px) rotate(20deg);
+      }
+
+      40% {
+        transform: translateX(-10px) rotate(-20deg);
+      }
+
+      60% {
+        transform: translateX(10px) rotate(20deg);
+      }
+
+      100% {
+        transform: translateY(100vh) rotate(45deg);
+        opacity: 0;
+      }
+    }
+
+    .animate-feather {
+      position: absolute;
+      top: 0;
+      /* Sped up to 0.5s */
+      animation: float-down 0.5s ease-in forwards;
+      image-rendering: pixelated;
+    }
+
+    /* Smoke Puff Animation */
+    @keyframes puff-out {
+      0% {
+        transform: scale(0.5);
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: scale(2.5);
+        opacity: 0;
+      }
+    }
+
+    .animate-smoke {
+      position: absolute;
+      animation: puff-out 0.8s ease-out forwards;
+      image-rendering: pixelated;
+    }
+
+    /* Cloud Animation */
+    @keyframes cloud-move {
+      from {
+        transform: translateX(-100%);
+      }
+
+      to {
+        transform: translateX(600px);
+      }
+
+      /* Approximate screen width + buffer */
+    }
+
+    .animate-cloud-slow {
+      animation: cloud-move 30s linear infinite;
+    }
+
+    .animate-cloud-fast {
+      animation: cloud-move 20s linear infinite;
+    }
+
+    /* CRT Scanline Effect */
+    .scanlines {
+      background: linear-gradient(to bottom,
+          rgba(255, 255, 255, 0),
+          rgba(255, 255, 255, 0) 50%,
+          rgba(0, 0, 0, 0.1) 50%,
+          rgba(0, 0, 0, 0.1));
+      background-size: 100% 4px;
+      pointer-events: none;
+    }
+  </style>
+
+</head>
+
+<body class="bg-slate-950 text-slate-100 antialiased select-none overflow-hidden touch-none">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
