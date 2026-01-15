@@ -26,4 +26,6 @@ UI should be Responsive for all devices.
 Bug if a person leaves the game it should come as player left and not playing
 HINGHLISH dataset
 
+-Make it multiplayer
+
 
