@@ -1,6 +1,4 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+
 
 # Run and deploy your AI Studio app
 
@@ -29,5 +27,10 @@ Bug if a person leaves the game it should come as player left and not playing
 # Fixed-
 Sound Bug fix on Android Device
 UI should be Responsive for all devices.
- 
+Title overflow on refresh
+Quit dialog showed full black screen
+Android audio not playing
 
+## Updates Made
+Health system
+Feedback animations - 💯 emoji burst on correct answers, 🤦 emoji on wrong answers
