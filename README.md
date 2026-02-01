@@ -6,7 +6,7 @@
 
 Test your knowledge in the fastest bird quiz game with **real-time multiplayer action**, powered by Google's Gemini AI! 🤖✨
 
-> **Challenge your friends. Outsmart the AI. Don't let the birds fool you!**
+> **Challenge your friends. Don't let the birds fool you!**
 
 ---
 
