@@ -59,10 +59,8 @@ npm run dev
 ## 📋 Still To Do
 
 - 🧹 Clean HINGLISH dataset for better questions
-- ⚡ Performance optimization for large multiplayer lobbies  
-- 🎨 Leaderboard & achievement system
-- 🏆 Sound effects & background music
-- 📊 Statistics & game history
+- ⚡ Performance optimization for large multiplayer lobbies
+- 🏆 Background music
 
 ---
 
