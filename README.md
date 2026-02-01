@@ -1,5 +1,5 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+<img width="1200" height="600" alt="Chidiya Udd Poster" src="https://github.com/Chaitaneya/comp/blob/main/image.png?raw=true" />
 </div>
 
 # 🐦 Chidiya Udd - The Ultimate Bird Brain Game! 
@@ -13,12 +13,9 @@ Test your knowledge in the fastest bird quiz game with **real-time multiplayer a
 ## 🎮 Features
 
 ✅ **Lightning-Fast Multiplayer** - Play with friends in real-time  
-✅ **AI-Generated Questions** - Powered by Google Gemini API  
 ✅ **Responsive Design** - Works on mobile, tablet, desktop  
 ✅ **Live Feedback** - 💯 Celebrate wins, 🤦 Learn from mistakes  
 ✅ **Heart Health System** - ❤️ Track your lives in style  
-✅ **Android-Optimized Audio** - Crystal clear sound on all devices  
-✅ **Mock Mode** - Play offline for testing
 
 ---
 
@@ -50,8 +47,6 @@ npm run dev
 | 📱 Non-responsive UI | Applied responsive breakpoints (sm/md/lg) across all components |
 | 📜 Title overflow on mobile | Fixed with adaptive padding & scaling |
 | ⬛ Quit dialog = full black screen | Changed fixed → absolute positioning |
-| 👥 Multiplayer player-left bug | Added PLAYER_LEFT event + heartbeat system |
-| 🎮 Players exit instead of eliminate | Now properly eliminates mid-game |
 
 ### ✨ New Polish
 - 💖 Health system: boxes → **heart emojis** (❤️/🖤)
@@ -65,7 +60,6 @@ npm run dev
 
 - 🧹 Clean HINGLISH dataset for better questions
 - ⚡ Performance optimization for large multiplayer lobbies  
-- 🌍 Add internationalization (i18n) support
 - 🎨 Leaderboard & achievement system
 - 🏆 Sound effects & background music
 - 📊 Statistics & game history
