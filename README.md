@@ -21,14 +21,13 @@ View your app in AI Studio: https://ai.studio/apps/drive/1yJJe2bg7ziCn99ZT13aGFK
 
 
 To Do -
+Clean HINGLISH dataset
+Multiplayer issue
+Bug if a person leaves the game it should come as player left and not playing
+
+
+# Fixed-
 Sound Bug fix on Android Device
 UI should be Responsive for all devices.
-Bug if a person leaves the game it should come as player left and not playing
-Later-
-HINGHLISH dataset
-
-# multiplayer not working
-# make it adaptive for mobile too
-# dataset clean kro
-
+ 
 
