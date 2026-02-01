@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from './Button';
 import { audio } from '../services/audioService';
 import Logo from './Logo';
@@ -34,6 +34,11 @@ const MainMenu: React.FC<MainMenuProps> = ({
   isSplashActive
 }) => {
   const [isMuted, setIsMuted] = useState(audio.isMuted());
+  
+  // Warmup audio engine when component mounts for Android compatibility
+  useEffect(() => {
+    audio.warmup();
+  }, []);
   
   const handleStart = () => {
     audio.resume(); 
@@ -83,7 +88,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
         <div className={`
           z-40 transition-all duration-[1000ms] cubic-bezier(0.4, 0, 0.2, 1)
           ${isSplashActive 
-            ? 'translate-y-[20vh] scale-[1.5]' // Splash Position: Lower (center) and Larger
+            ? 'translate-y-[15vh] sm:translate-y-[20vh] scale-100 sm:scale-[1.3] md:scale-[1.5]' // Splash: Mobile-friendly scaling
             : 'translate-y-0 scale-100'        // Menu Position: Natural flow
           }
         `}>

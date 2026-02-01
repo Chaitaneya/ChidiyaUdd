@@ -105,7 +105,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
       type: 'feather',
       x: Math.random() * 90 + 5,
       y: -10,
-      emoji: '🪶',
+      emoji: '💯',
       delay: Math.random() * 0.2
     }));
     setEffects(prev => [...prev, ...newEffects]);
@@ -117,7 +117,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
       type: 'smoke',
       x: 50 + (Math.random() * 20 - 10),
       y: 40 + (Math.random() * 20 - 10),
-      emoji: '💨',
+      emoji: '🤦',
       delay: Math.random() * 0.2
     }));
     setEffects(prev => [...prev, ...newEffects]);
@@ -164,15 +164,34 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
           audio.playGameOver();
           if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
           
-          // No spectator mode anymore, go straight to Game Over for both Single and Multiplayer
-          setTimeout(() => onGameOver(score), 1000);
+          // In multiplayer: mark as eliminated and become spectator
+          // In single player: go to game over
+          if (isMultiplayer) {
+            multiplayer.updatePlayerState(score, 0); // Send final state with 0 lives
+            // Wait before exiting to show the failure, then check if anyone else is alive
+            setTimeout(() => {
+              const room = multiplayer.getRoom();
+              if (room) {
+                const alivePlayers = room.players.filter(p => p.status === 'alive');
+                if (alivePlayers.length === 0) {
+                  // Everyone is eliminated, game over
+                  onGameOver(score);
+                } else {
+                  // Still other players alive, go back to lobby as spectator
+                  onExit();
+                }
+              }
+            }, 1000);
+          } else {
+            setTimeout(() => onGameOver(score), 1000);
+          }
         } else {
           setTimeout(nextRound, 1700);
         }
         return newLives;
       });
     }
-  }, [score, onGameOver]);
+  }, [score, onGameOver, onExit, isMultiplayer]);
 
   const nextRound = () => {
     // If we ran out of entities (Multiplayer end condition usually)
@@ -249,6 +268,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
 
   const handleFlyAction = () => {
     if (!roundActive || hasActedRef.current || isPaused || showQuitConfirm) return;
+    // Resume audio context on user interaction for Android
+    audio.resume();
     audio.playClick();
     hasActedRef.current = true; 
     
@@ -263,6 +284,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
     // Multiplayer cannot be paused by one person, this function is mostly for Single Player now
     if (isMultiplayer) return;
 
+    // Resume audio context on user interaction for Android
+    audio.resume();
     audio.playClick();
     if (isPaused) {
       const pauseDuration = Date.now() - pausedAtRef.current;
@@ -276,6 +299,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
   };
 
   const handleMuteToggle = () => {
+    // Resume audio context on user interaction for Android
+    audio.resume();
     const muted = audio.toggleMute();
     setIsMuted(muted);
     if (!muted) audio.playClick();
@@ -305,12 +330,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
     });
 
     return (
-        <div className="absolute top-16 left-2 z-30 flex flex-col gap-2 pointer-events-none opacity-90">
+        <div className="absolute top-16 right-2 sm:right-4 z-30 flex flex-col gap-1 sm:gap-2 pointer-events-none opacity-90 max-w-xs">
             {sortedPlayers.map(p => (
-                <div key={p.id} className={`flex items-center gap-2 px-2 py-1 rounded-md border-2 border-black shadow-[2px_2px_0_0_#000] text-xs font-bold ${p.status === 'alive' ? 'bg-white' : 'bg-slate-400 grayscale'}`}>
-                    <span className="w-4">{p.status === 'alive' ? '🟢' : '💀'}</span>
-                    <span className="max-w-[60px] truncate">{p.name}</span>
-                    <span className="text-blue-600">{p.score}</span>
+                <div key={p.id} className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0_0_#000] text-[10px] sm:text-xs font-bold whitespace-nowrap overflow-hidden ${p.status === 'alive' ? 'bg-white' : 'bg-slate-400 grayscale'}`}>
+                    <span className="w-3 sm:w-4 flex-shrink-0">{p.status === 'alive' ? '🟢' : '💀'}</span>
+                    <span className="max-w-[50px] sm:max-w-[80px] truncate">{p.name}</span>
+                    <span className="text-blue-600 ml-auto flex-shrink-0">{p.score}</span>
                 </div>
             ))}
         </div>
@@ -341,56 +366,52 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
       {renderLeaderboard()}
 
       {/* HUD - Fixed Layout */}
-      <div className="w-full max-w-md px-4 h-14 flex justify-between items-start z-20 font-retro relative shrink-0">
+      <div className="w-full max-w-md px-2 sm:px-4 h-12 sm:h-14 flex justify-between items-start z-20 font-retro relative shrink-0">
         {/* Left: HP */}
-        <div className="flex flex-col items-start gap-1" role="status" aria-label={`Lives remaining: ${lives}`}>
-          <span className="text-red-400 text-[10px] sm:text-xs tracking-widest uppercase">Health</span>
-          <div className="flex gap-1 h-10 items-center">
+        <div className="flex flex-col items-start gap-0.5 sm:gap-1" role="status" aria-label={`Lives remaining: ${lives}`}>
+          <span className="text-red-400 text-[8px] sm:text-xs tracking-widest uppercase">Health</span>
+          <div className="flex gap-0.5 sm:gap-1 h-6 sm:h-8 items-center">
             {Array.from({ length: MAX_LIVES }).map((_, i) => (
-                <div 
-                    key={i} 
-                    className={`
-                        w-6 h-6 sm:w-8 sm:h-8 border-2 border-black shadow-[2px_2px_0_0_#000] transition-colors duration-200
-                        ${i < lives ? 'bg-red-500' : 'bg-slate-700'}
-                    `}
-                ></div>
+                <div key={i} className="text-lg sm:text-2xl transition-opacity duration-200" style={{ opacity: i < lives ? 1 : 0.3 }}>
+                    {i < lives ? '❤️' : '🖤'}
+                </div>
             ))}
           </div>
         </div>
         
         {/* Right: Score & Controls */}
-        <div className="flex items-start gap-3">
-             <div className="flex flex-col items-end gap-1" role="status" aria-label={`Score: ${score}`}>
-                <span className="text-green-400 text-[10px] sm:text-xs tracking-widest uppercase">Score</span>
-                <div className="relative bg-slate-800 px-3 py-1 h-10 border-2 border-slate-500 shadow-[2px_2px_0_0_#000] text-green-400 text-sm sm:text-base flex items-center min-w-[80px] justify-center overflow-visible">
+        <div className="flex items-start gap-1 sm:gap-3">
+             <div className="flex flex-col items-end gap-0.5 sm:gap-1" role="status" aria-label={`Score: ${score}`}>
+                <span className="text-green-400 text-[8px] sm:text-xs tracking-widest uppercase">Score</span>
+                <div className="relative bg-slate-800 px-2 sm:px-3 py-0.5 sm:py-1 h-8 sm:h-10 border-2 border-slate-500 shadow-[2px_2px_0_0_#000] text-green-400 text-xs sm:text-base flex items-center min-w-[70px] sm:min-w-[80px] justify-center overflow-visible">
                  {score.toString().padStart(4, '0')}
                  {streak > 1 && (
-                    <div className="absolute -bottom-4 right-0 text-[10px] text-orange-400 font-bold animate-pulse whitespace-nowrap bg-black px-1 border border-orange-500 z-10">
+                    <div className="absolute -bottom-3 right-0 text-[8px] sm:text-[10px] text-orange-400 font-bold animate-pulse whitespace-nowrap bg-black px-1 border border-orange-500 z-10">
                         🔥 x{streak}
                     </div>
                  )}
                 </div>
             </div>
             
-            <div className="flex gap-2">
-                <div className="flex flex-col items-end gap-1">
-                    <span className="text-slate-400 text-[10px] sm:text-xs tracking-widest uppercase">Sound</span>
+            <div className="flex gap-1">
+                <div className="flex flex-col items-end gap-0.5 sm:gap-1">
+                    <span className="text-slate-400 text-[8px] sm:text-xs tracking-widest uppercase">Sound</span>
                     <button 
                         onClick={handleMuteToggle}
-                        className="w-10 h-10 bg-slate-700 border-2 border-black flex items-center justify-center text-xl hover:bg-slate-600 active:translate-y-1 shadow-[2px_2px_0_0_#000] focus:outline-none"
+                        className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-700 border-2 border-black flex items-center justify-center text-lg sm:text-xl hover:bg-slate-600 active:translate-y-1 shadow-[2px_2px_0_0_#000] focus:outline-none"
                     >
                         {isMuted ? '🔇' : '🔊'}
                     </button>
                 </div>
 
-                <div className="flex flex-col items-end gap-1">
-                    <span className="text-slate-400 text-[10px] sm:text-xs tracking-widest uppercase">
+                <div className="flex flex-col items-end gap-0.5 sm:gap-1">
+                    <span className="text-slate-400 text-[8px] sm:text-xs tracking-widest uppercase">
                         {isMultiplayer ? 'Exit' : 'Menu'}
                     </span>
                     <button 
                         onClick={isMultiplayer ? () => setShowQuitConfirm(true) : handlePauseToggle}
                         className={`
-                            w-10 h-10 border-2 border-black flex items-center justify-center text-white active:translate-y-1 shadow-[2px_2px_0_0_#000] focus:outline-none transition-colors
+                            w-8 h-8 sm:w-10 sm:h-10 border-2 border-black flex items-center justify-center text-white active:translate-y-1 shadow-[2px_2px_0_0_#000] focus:outline-none transition-colors text-sm sm:text-base
                             ${isMultiplayer 
                                 ? 'bg-red-600 hover:bg-red-500' 
                                 : 'bg-slate-700 hover:bg-slate-600'
@@ -407,19 +428,19 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
       {/* Pause Overlay */}
       {isPaused && !isMultiplayer && !showQuitConfirm && (
         <div className="absolute inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-sm">
-          <h2 className="text-4xl font-retro text-yellow-400 animate-pulse drop-shadow-[4px_4px_0_#000]">PAUSED</h2>
-          <div className="flex flex-col gap-4 w-64">
+          <h2 className="text-3xl sm:text-4xl font-retro text-yellow-400 animate-pulse drop-shadow-[4px_4px_0_#000]">PAUSED</h2>
+          <div className="flex flex-col gap-4 w-56 sm:w-64">
              <Button onClick={handlePauseToggle} variant="secondary">RESUME</Button>
              <Button onClick={() => setShowQuitConfirm(true)} variant="danger">EXIT GAME</Button>
           </div>
         </div>
       )}
 
-      {/* Quit Confirmation Overlay */}
+      {/* Quit Confirmation Overlay - Stays within game container */}
       {showQuitConfirm && (
-        <div className="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center gap-6 backdrop-blur-sm">
-          <h2 className="text-3xl font-retro text-white drop-shadow-[4px_4px_0_#000]">LEAVE GAME?</h2>
-          <div className="flex flex-col gap-4 w-64">
+        <div className="absolute inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center gap-6 backdrop-blur-sm rounded-none">
+          <h2 className="text-2xl sm:text-3xl font-retro text-white drop-shadow-[4px_4px_0_#000]">LEAVE GAME?</h2>
+          <div className="flex flex-col gap-4 w-56 sm:w-64">
              <Button onClick={onExit} variant="danger">YES, LEAVE</Button>
              <Button onClick={() => setShowQuitConfirm(false)} variant="secondary">CANCEL</Button>
           </div>
@@ -427,11 +448,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
       )}
       
       {/* Main Game Area */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md relative z-10 px-4 min-h-0">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md relative z-10 px-2 sm:px-4 min-h-0">
          
-         <div className="h-16 w-full flex items-center justify-center mb-2 shrink-0 relative">
+         <div className="h-12 sm:h-16 w-full flex items-center justify-center mb-1 sm:mb-2 shrink-0 relative">
              {feedback && (
-               <div className={`text-3xl sm:text-4xl font-retro text-center animate-pop-in drop-shadow-[4px_4px_0_#000] stroke-black z-50 ${
+               <div className={`text-2xl sm:text-3xl md:text-4xl font-retro text-center animate-pop-in drop-shadow-[4px_4px_0_#000] stroke-black z-50 ${
                  feedback === 'miss' ? 'text-red-500' : 'text-green-400'
                }`} style={{ textShadow: '2px 2px 0px #000' }}>
                  {getFeedbackText()}
@@ -440,28 +461,28 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
          </div>
          
          <div className={`
-             relative bg-slate-200 border-4 border-black p-4 sm:p-6 shadow-[8px_8px_0_0_#000]
-             flex flex-col items-center gap-2 sm:gap-4 w-full max-w-[280px] transition-transform duration-100
+             relative bg-slate-200 border-4 border-black p-3 sm:p-6 shadow-[8px_8px_0_0_#000]
+             flex flex-col items-center gap-2 sm:gap-4 w-full max-w-xs sm:max-w-sm transition-transform duration-100
              ${roundActive ? 'scale-100' : 'scale-95 opacity-80'}
              ${feedback === 'miss' ? 'animate-shake bg-red-200' : ''}
          `}>
             
-            <div className="text-7xl sm:text-9xl filter drop-shadow-md select-none py-2">
+            <div className="text-5xl sm:text-7xl md:text-9xl filter drop-shadow-md select-none py-1 sm:py-2">
                 {currentEntity.emoji}
             </div>
             
-            <div className="text-center w-full min-h-[4rem] flex flex-col justify-center">
-                <h2 className="text-xl sm:text-3xl font-bold uppercase tracking-tight leading-none break-words line-clamp-2 text-black mb-1">
+            <div className="text-center w-full min-h-[3rem] sm:min-h-[4rem] flex flex-col justify-center">
+                <h2 className="text-lg sm:text-2xl md:text-3xl font-bold uppercase tracking-tight leading-none break-words line-clamp-2 text-black mb-0.5 sm:mb-1">
                     {primaryName}
                 </h2>
                 {secondaryName && (
-                    <p className="text-lg sm:text-2xl text-blue-800 font-hindi leading-none font-bold bg-white/50 px-2 py-1 inline-block rounded border-2 border-transparent">
+                    <p className="text-base sm:text-xl md:text-2xl text-blue-800 font-hindi leading-none font-bold bg-white/50 px-2 py-0.5 sm:py-1 inline-block rounded border-2 border-transparent">
                         {secondaryName}
                     </p>
                 )}
             </div>
 
-            <div className="w-full h-4 bg-slate-800 border-2 border-black mt-2 relative overflow-hidden">
+            <div className="w-full h-3 sm:h-4 bg-slate-800 border-2 border-black mt-1 sm:mt-2 relative overflow-hidden">
                 <div 
                   className={`h-full border-r-2 border-black ${timeLeft < 30 ? 'bg-red-500' : 'bg-green-500'}`}
                   style={{ width: `${timeLeft}%` }}
@@ -470,10 +491,10 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
          </div>
       </div>
 
-      <div className="w-full max-w-md px-6 pb-6 pt-2 z-10 shrink-0">
+      <div className="w-full max-w-md px-2 sm:px-6 pb-4 sm:pb-6 pt-1 sm:pt-2 z-10 shrink-0">
          <button
             className={`
-              w-full py-5 sm:py-6 bg-blue-600 text-white font-retro text-xl sm:text-2xl border-4 border-black
+              w-full py-4 sm:py-5 md:py-6 bg-blue-600 text-white font-retro text-lg sm:text-xl md:text-2xl border-4 border-black
               shadow-[6px_6px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[2px_2px_0_0_#000] transition-all
               flex items-center justify-center gap-3 select-none
               ${!roundActive ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-500'}

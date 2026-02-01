@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { multiplayer } from '../services/multiplayerService';
+import { audio } from '../services/audioService';
 import Button from './Button';
 
 interface MultiplayerSetupProps {
@@ -51,6 +52,9 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
 
   const handleCreate = async () => {
     if (!name.trim()) return setError("ENTER NAME!");
+    // Resume audio on user interaction for Android
+    audio.resume();
+    audio.warmup();
     // Rounds removed, defaults to infinite
     await multiplayer.createRoom(name);
     onGameStart(); 
@@ -59,6 +63,10 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
   const handleJoin = () => {
     if (!name.trim()) return setError("ENTER NAME!");
     if (roomCode.length !== 4) return setError("INVALID CODE!");
+    
+    // Resume audio on user interaction for Android
+    audio.resume();
+    audio.warmup();
     
     const success = multiplayer.joinRoom(roomCode.toUpperCase(), name);
     if (success) {
@@ -71,20 +79,20 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
   // --- MENU VIEW ---
   if (view === 'menu') {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6 w-full relative">
+      <div className="flex flex-col items-center justify-center h-full px-4 w-full relative">
         <BackButton defaultBack={onBack} />
         
-        <div className="max-w-sm w-full animate-fade-in flex flex-col items-center gap-8">
-            <h1 className="text-3xl text-yellow-400 font-retro text-center drop-shadow-[4px_4px_0_#000]">
+        <div className="max-w-sm w-full animate-fade-in flex flex-col items-center gap-6 sm:gap-8">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl text-yellow-400 font-retro text-center drop-shadow-[4px_4px_0_#000]">
             MULTIPLAYER
             </h1>
             
-            <div className="w-full flex flex-col gap-4">
-            <Button onClick={() => setView('create')} className="w-full py-6 text-xl">
+            <div className="w-full flex flex-col gap-3 sm:gap-4">
+            <Button onClick={() => setView('create')} className="w-full py-4 sm:py-6 text-base sm:text-xl">
                 HOST GAME 👑
             </Button>
             
-            <Button onClick={() => setView('join')} variant="secondary" className="w-full py-6 text-xl">
+            <Button onClick={() => setView('join')} variant="secondary" className="w-full py-4 sm:py-6 text-base sm:text-xl">
                 JOIN GAME 🎮
             </Button>
             </div>
@@ -96,12 +104,12 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
   // --- CREATE VIEW ---
   if (view === 'create') {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6 w-full relative">
+      <div className="flex flex-col items-center justify-center h-full px-4 w-full relative">
         <BackButton action={() => setView('menu')} defaultBack={onBack} />
         
         <div className="w-full max-w-sm animate-slide-up">
-            <div className="bg-slate-800 border-4 border-black shadow-[8px_8px_0_0_#000] p-6 w-full">
-                <h2 className="text-xl text-white font-retro mb-6 text-center border-b-4 border-black pb-4">
+            <div className="bg-slate-800 border-4 border-black shadow-[8px_8px_0_0_#000] p-4 sm:p-6 w-full">
+                <h2 className="text-lg sm:text-xl text-white font-retro mb-4 sm:mb-6 text-center border-b-4 border-black pb-3 sm:pb-4">
                     HOST GAME
                 </h2>
 
@@ -114,8 +122,8 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
 
                 {error && <p className="text-red-500 font-retro text-xs mb-4 text-center blink">{error}</p>}
 
-                <Button onClick={handleCreate} className="w-full">CREATE ROOM</Button>
-                <button onClick={() => setView('menu')} className="w-full mt-4 text-slate-500 font-retro text-xs hover:text-white">CANCEL</button>
+                <Button onClick={handleCreate} className="w-full text-base sm:text-lg">CREATE ROOM</Button>
+                <button onClick={() => setView('menu')} className="w-full mt-3 sm:mt-4 text-slate-500 font-retro text-xs hover:text-white">CANCEL</button>
             </div>
         </div>
       </div>
@@ -125,12 +133,12 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
   // --- JOIN VIEW ---
   if (view === 'join') {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6 w-full relative">
+      <div className="flex flex-col items-center justify-center h-full px-4 w-full relative">
         <BackButton action={() => setView('menu')} defaultBack={onBack} />
 
         <div className="w-full max-w-sm animate-slide-up">
-            <div className="bg-slate-800 border-4 border-black shadow-[8px_8px_0_0_#000] p-6 w-full">
-                <h2 className="text-xl text-white font-retro mb-6 text-center border-b-4 border-black pb-4">
+            <div className="bg-slate-800 border-4 border-black shadow-[8px_8px_0_0_#000] p-4 sm:p-6 w-full">
+                <h2 className="text-lg sm:text-xl text-white font-retro mb-4 sm:mb-6 text-center border-b-4 border-black pb-3 sm:pb-4">
                     JOIN GAME
                 </h2>
 
@@ -151,8 +159,8 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
 
                 {error && <p className="text-red-500 font-retro text-xs mb-4 text-center blink">{error}</p>}
 
-                <Button onClick={handleJoin} variant="success" className="w-full">ENTER ROOM</Button>
-                <button onClick={() => setView('menu')} className="w-full mt-4 text-slate-500 font-retro text-xs hover:text-white">CANCEL</button>
+                <Button onClick={handleJoin} variant="success" className="w-full text-base sm:text-lg">ENTER ROOM</Button>
+                <button onClick={() => setView('menu')} className="w-full mt-3 sm:mt-4 text-slate-500 font-retro text-xs hover:text-white">CANCEL</button>
             </div>
         </div>
       </div>
