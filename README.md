@@ -20,7 +20,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1yJJe2bg7ziCn99ZT13aGFK
    `npm run dev`
 
 
-To Do -
+# To Do -
 Clean HINGLISH dataset
 Multiplayer issue
 Bug if a person leaves the game it should come as player left and not playing
