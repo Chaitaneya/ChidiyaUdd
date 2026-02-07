@@ -330,7 +330,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
     });
 
     return (
-        <div className="absolute top-16 right-2 sm:right-4 z-30 flex flex-col gap-1 sm:gap-2 pointer-events-none opacity-90 max-w-xs">
+        <div className="absolute top-28 right-2 sm:right-4 z-30 flex flex-col gap-1 sm:gap-2 pointer-events-none opacity-90 max-w-xs">
             {sortedPlayers.map(p => (
                 <div key={p.id} className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0_0_#000] text-[10px] sm:text-xs font-bold whitespace-nowrap overflow-hidden ${p.status === 'alive' ? 'bg-white' : 'bg-slate-400 grayscale'}`}>
                     <span className="w-3 sm:w-4 flex-shrink-0">{p.status === 'alive' ? '🟢' : '💀'}</span>
