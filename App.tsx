@@ -108,6 +108,12 @@ const App: React.FC = () => {
     setGameState(GameState.MENU);
   };
 
+  const handleGameOverBackToLobby = () => {
+    // Return to lobby without leaving the room
+    setScore(0);
+    setGameState(GameState.MP_LOBBY);
+  };
+
   return (
     <div className="min-h-screen bg-blue-900 flex items-center justify-center p-0 sm:p-4 font-mono">
       {/* Retro pattern background */}
@@ -163,6 +169,7 @@ const App: React.FC = () => {
             highScore={highScore}
             onTryAgain={handleTryAgain}
             onBackToMenu={handleBackToMenu}
+            onBackToLobby={handleGameOverBackToLobby}
           />
         )}
       </div>
