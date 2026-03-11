@@ -10,6 +10,7 @@ interface GameOverProps {
   highScore: number;
   onTryAgain: () => void;
   onBackToMenu: () => void;
+  onBackToLobby?: () => void;
 }
 
 const GameOver: React.FC<GameOverProps> = ({
@@ -17,6 +18,7 @@ const GameOver: React.FC<GameOverProps> = ({
   highScore,
   onTryAgain,
   onBackToMenu,
+  onBackToLobby,
 }) => {
   const isNewHighScore = score > 0 && score >= highScore;
 
@@ -79,6 +81,11 @@ const GameOver: React.FC<GameOverProps> = ({
     onBackToMenu();
   };
 
+  const handleBackToLobbyClick = () => {
+    audio.playClick();
+    onBackToLobby?.();
+  };
+
   const renderMultiplayerResults = () => {
     if (!mpRoom) return null;
 
@@ -89,7 +96,9 @@ const GameOver: React.FC<GameOverProps> = ({
     return (
       <div className="w-full max-w-sm bg-white rounded-2xl p-4 text-slate-800 shadow-xl mb-4">
         <h3 className="flex items-center justify-center gap-2 font-retro text-xl mb-4 border-b-2 border-slate-200 pb-2">
-  {!isGameActive && <span className="text-2xl">🏁</span>}
+  {!isGameActive && (
+    <span className="text-2xl inline-block -translate-y-[5px]">🏁</span>
+  )}
   <span>{isGameActive ? 'Live Standings' : 'Final Standings'}</span>
 </h3>
 
@@ -177,30 +186,57 @@ const GameOver: React.FC<GameOverProps> = ({
         </div>
       )}
 
-      {/* ✅ TWO BUTTONS – aligned like Main Menu */}
+      {/* ✅ BUTTONS – Different for Single vs Multiplayer */}
       <div className="flex flex-col gap-4 w-full max-w-xs mx-auto">
-        {!isMultiplayer && (
-          <Button
-            onClick={handleTryAgainClick}
-            className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
-          >
-            <span className="inline-flex items-center justify-center w-10 h-6 border-2 border-black bg-black/30 text-sm">
-              1P
-            </span>
-            <span>TRY AGAIN</span>
-          </Button>
-        )}
+        {isMultiplayer ? (
+          <>
+            {/* Multiplayer Buttons */}
+            <Button
+              onClick={handleBackToLobbyClick}
+              className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
+            >
+              <span className="text-2xl leading-none -translate-y-[2px]">
+                👥
+              </span>
+              <span>BACK TO LOBBY</span>
+            </Button>
 
-        <Button
-  onClick={handleBackToMenuClick}
-  variant="secondary"
-  className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
->
-  <span className="text-2xl sm:text-3xl leading-none -translate-y-[1px]">
-    🏠
-  </span>
-  <span>BACK TO MENU</span>
-</Button>
+            <Button
+              onClick={handleBackToMenuClick}
+              variant="secondary"
+              className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
+            >
+              <span className="text-2xl leading-none -translate-y-[2px]">
+                🏠
+              </span>
+              <span>BACK TO MENU</span>
+            </Button>
+          </>
+        ) : (
+          <>
+            {/* Single Player Buttons */}
+            <Button
+              onClick={handleTryAgainClick}
+              className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
+            >
+              <span className="inline-flex items-center justify-center w-10 h-6 border-2 border-black bg-black/30 text-sm">
+                1P
+              </span>
+              <span>TRY AGAIN</span>
+            </Button>
+
+            <Button
+              onClick={handleBackToMenuClick}
+              variant="secondary"
+              className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
+            >
+              <span className="text-2xl leading-none -translate-y-[2px]">
+                🏠
+              </span>
+              <span>BACK TO MENU</span>
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

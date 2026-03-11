@@ -4,41 +4,431 @@
 
 # 🐦 Chidiya Udd - The Ultimate Bird Brain Game! 
 
-Test your knowledge in the fastest bird quiz game with **real-time multiplayer action**, powered by Google's Gemini AI! 🤖✨
+Test your knowledge in the fastest quiz game with **real-time multiplayer action**, powered by Google's Gemini AI! 🤖✨
 
-> **Challenge your friends. Don't let the birds fool you!**
+> **Challenge your friends. Don't let the subjects fool you!**
 
 ---
 
-## 🎮 Features
+## 🎮 Core Features
 
-✅ **Lightning-Fast Multiplayer** - Play with friends in real-time  
-✅ **Responsive Design** - Works on mobile, tablet, desktop  
+✅ **Lightning-Fast Multiplayer** - Play with friends in real-time via Supabase Realtime  
+✅ **AI-Powered Questions** - Gemini API generates dynamic quiz content  
+✅ **Responsive Design** - Works flawlessly on mobile, tablet, and desktop  
+✅ **Retro Pixel UI** - Consistent, polished 8-bit aesthetic across all screens  
 ✅ **Live Feedback** - 💯 Celebrate wins, 🤦 Learn from mistakes  
-✅ **Heart Health System** - ❤️ Track your lives in style  
+✅ **Heart Health System** - ❤️ Track your lives with stylized indicators  
+✅ **Single & Multiplayer Modes** - Solo play or realtime competition  
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ Architecture Overview
 
-**Prerequisites:** Node.js (v16+)
+### Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 19 + TypeScript 5.8 |
+| **Build** | Vite 6.2 (⚡ 2.4s builds) |
+| **Styling** | Tailwind CSS + custom retro fonts |
+| **Realtime** | Supabase Realtime v2 (broadcast channels) |
+| **AI** | Google Gemini API (dynamic entity generation) |
+| **Audio** | Web Audio API (custom sound synthesis) |
+| **Animations** | Canvas Confetti (high-performance particle effects) |
+
+### Project Structure
+
+```
+chidiyaUddV2/
+├── components/
+│   ├── Button.tsx              # Standardized retro button component
+│   ├── GameScreen.tsx          # Main gameplay loop (single + multi)
+│   ├── GameOver.tsx            # Results screen (conditional UI)
+│   ├── Lobby.tsx               # Multiplayer waiting room
+│   ├── MainMenu.tsx            # Entry point
+│   ├── MultiplayerSetup.tsx    # Create/join rooms
+│   ├── Logo.tsx                # Animated title
+│   └── ...
+├── services/
+│   ├── multiplayerService.ts   # Multiplayer networking & sync
+│   ├── geminiService.ts        # AI question generation
+│   ├── audioService.ts         # Sound engine
+│   └── supabaseClient.ts       # Realtime connection
+├── App.tsx                     # State management & routing
+├── constants.ts                # 50+ fallback game entities
+├── types.ts                    # TypeScript definitions
+└── ...
+```
+
+---
+
+## 🎮 How To Play
+
+### Single Player
+1. Tap **"SINGLE PLAYER"** from the main menu
+2. Answer AI-generated questions about entities (animals, objects, concepts)
+3. **Decide**: Does it FLY? 🐦 or NOT FLY? 🚫
+4. Correct → +10 points (streak multiplier up to 3x)
+5. Wrong → Lose 1 ❤️ (start with 3)
+6. Game ends when all ❤️ are gone
+7. Beat your high score! 🏆
+
+### Multiplayer
+1. Tap **"MULTIPLAYER"** → **"HOST GAME 👑"** to create a room
+2. Friend taps **"JOIN GAME 🎮"** and enters your 4-character room code
+3. Both are in the lobby — host taps **"START GAME ▶"**
+4. Play side-by-side on the same question deck
+5. Real-time leaderboard shows who's winning
+6. Last player with ❤️ wins! 🎉
+7. **New**: Players can **BACK TO LOBBY** for instant rematches
+
+---
+
+## 🎨 UI Design System
+
+### Retro Pixel Aesthetic
+
+The entire app uses a consistent **8-bit inspired design language**:
+
+**Button System**
+- Standardized buttons with 4px hard borders (no rounded corners)
+- Solid drop shadows for depth (`shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`)
+- Active state: button "presses" down (translate-y moves down, shadow disappears)
+- Disabled state: opacity 50%, grayed out
+- Emoji icons vertically centered with `-translate-y-[2px]` adjustments
+- All buttons use `font-retro` (VT323 fallback)
+
+Example:
+```jsx
+<Button variant="primary" onClick={handleStart}>
+  <span className="-translate-y-[2px]">▶</span>
+  <span>START GAME</span>
+</Button>
+```
+
+**Color Palette**
+- Primary Actions: Blue (`bg-blue-600`)
+- Secondary Actions: White (`bg-white text-black`)
+- Success/Achievements: Green
+- Warnings/Losses: Red
+- Text: White on dark backgrounds, black on light
+- Accents: Yellow (`text-yellow-400`) for headers
+
+**Typography**
+- Headers: VT323 font (monospace pixel font)
+- Body: `font-retro` class (system fallback)
+- All text uses `uppercase` and `tracking-wide` for authentic 8-bit feel
+
+**Alignment Fixes** ✨
+- Emoji icons: Vertically centered in buttons (`flex items-center`)
+- Leaderboard headers: Perfectly centered in container bar
+- Player list headers: Vertically balanced
+- Section headers: Consistent padding and font sizing
+
+### Screen Components
+
+**Main Menu** 
+- Centered title (Chidiya Udd logo)
+- Two action buttons: Single Player + Multiplayer
+- Responsive scaling on mobile devices
+- Clean white text on dark background
+
+**Multiplayer Setup**
+- "HOST GAME 👑" button (create new room)
+- "JOIN GAME 🎮" button (with room code input)
+- Back button (arrow icon, no box)
+- Consistent alignment with Main Menu
+
+**Multiplayer Lobby**
+- Room code display (large yellow monospace text)
+- Player list with status indicators:
+  - 👑 Host designation
+  - 🕹️ Regular player
+  - 🟢 Status dot (alive = pulsing green)
+- "START GAME ▶" button (host only, enabled if entities loaded)
+- Back button for leaving
+
+**Game Over Screen**
+
+*Single Player:*
+- High score display with optional 🎉 confetti animation
+- Leaderboard (just your score)
+- Two buttons: "TRY AGAIN" (1P) + "BACK TO MENU" 🏠
+
+*Multiplayer:*
+- Final Standings header (🏁 flag icon, centered)
+- Leaderboard with ranking medals: 🥇 🥈 🥉
+- Two buttons: "BACK TO LOBBY" (👥) + "BACK TO MENU" 🏠
+- Room is kept alive for instant rematch
+
+---
+
+## 🔄 Multiplayer Architecture
+
+### Real-Time Synchronization
+
+**Connection Flow:**
+1. Host creates room → Channel subscription established
+2. Players join → Send JOIN_REQUEST after confirming channel is ready
+3. Host broadcasts ROOM_UPDATE (status, entities, player list)
+4. Game starts → Both clients sync player states (score, lives)
+5. Game ends → Room status becomes "finished" (host detects all eliminated)
+6. All clients receive room.status='finished' → Display synchronized leaderboard
+
+**Key Events** (Broadcast via Supabase):
+- `ROOM_UPDATE` - Room state changed (players, entities, status)
+- `JOIN_REQUEST` - Player joined (with name/ID)
+- `PLAYER_STATE` - Score/lives update (debounced 100ms)
+- `PLAYER_LEFT` - Player disconnected
+- `PLAYER_HEARTBEAT` - Alive ping (2s interval, 6s timeout)
+
+**State Management:**
+- MultiplayerService: Singleton managing all networking
+- Room is source of truth (not local client decisions)
+- Debounced updates prevent network flooding
+- Proper async/await prevents race conditions
+
+### Host vs Non-Host Logic
+
+**Host Responsibilities:**
+- Creates room and game entities
+- Detects when all players are eliminated → broadcasts room.status='finished'
+- Other than game logic, mostly transparent to players
+
+**Both Players:**
+- Answer questions in real-time
+- State synced automatically (score, lives)
+- See live multiplayer leaderboard during gameplay
+- See same Game Over screen with identical rankings
+
+### Behind The Scenes
+
+**Services:**
+- `multiplayerService.ts` - Connection, joining, state sync, heartbeat
+- `supabaseClient.ts` - Realtime channel setup (env-based credentials)
+- `geminiService.ts` - AI question generation (fallback to hardcoded entities)
+- `audioService.ts` - Click sounds, feedback tones
+
+**Configuration:**
+- `.env` file (not committed) → Add `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `GEMINI_API_KEY`
+- `.env.example` → Template reference
+
+---
+
+## 🔧 Setup & Development
+
+### Prerequisites
+- Node.js v16+ (v18+ recommended)
+- npm or yarn
+
+### Installation
 
 ```bash
-# 1. Install dependencies
+# 1. Clone and install
+git clone <repo-url>
+cd chidiyaUddV2
 npm install
 
-# 2. Set your Gemini API key in .env.local
-GEMINI_API_KEY=your_api_key_here
+# 2. Configure environment
+cp .env.example .env
 
-# 3. Start the dev server
+# Then edit .env with your keys:
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key_here
+GEMINI_API_KEY=your_gemini_api_key
+
+# 3. Start dev server
 npm run dev
 ```
 
-🌐 Open `http://localhost:3000` and start playing!
+Open `http://localhost:5173` in your browser.
+
+### Build for Production
+
+```bash
+npm run build
+```
+
+Output: `dist/` folder (optimized for deployment)
+
+### Available Scripts
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start dev server with hot reload |
+| `npm run build` | Production build (Vite optimized) |
+| `npm run preview` | Preview production build locally |
 
 ---
 
-## 🔧 Recent Fixes & Updates
+## ✨ Recent Improvements
+
+### Multiplayer Synchronization (v2.0)
+
+**Fixed Game Over Synchronization**
+- **Before**: Each player independently decided when the game ended → Different screens
+- **After**: Host detects all-eliminated state → broadcasts room.status='finished' → All players show identical leaderboard
+
+**Fix Details:**
+- Added `checkGameOver()` method in multiplayerService
+- GameScreen now watches for `mpRoom?.status === 'finished'`
+- Prevents race conditions with proper async/await in join flow
+
+**Lobby Improvements**
+- Host can start game **even if players leave** ✅
+- Removed "waiting for players" blocking logic
+- Display updates in real-time as players join/leave
+- Proper subscription cleanup (no memory leaks)
+
+**Post-Game UX**
+- **"BACK TO LOBBY"** button (multiplayer only) → Returns to lobby, room stays alive
+- **"BACK TO MENU"** button → Cleanly disconnects, returns to main menu
+- Single-player unchanged (TRY AGAIN + BACK TO MENU)
+
+### UI Polish
+
+**Button System Standardization**
+- All buttons use consistent styling (font, size, colors, shadows)
+- Emoji alignment fixed across all screens
+- Hover and active states work uniformly
+- Disabled states clearly indicated (50% opacity)
+
+**Alignment Fixes**
+- Player list headers ("PLAYERS (n)") centered vertically
+- Leaderboard 🏁 icon properly spaced
+- Button emojis aligned with text (-translate-y-[2px])
+- Start button, home icon, all UI elements aligned
+
+**Visual Improvements**
+- Confetti animation only on high scores (single-player)
+- "TOP SCORE" text now yellow for visibility
+- Consistent shadow styling across all UI elements
+- Responsive scaling on mobile devices
+
+### Stability & Performance
+
+**Network Optimization**
+- Debounced state updates (100ms batching) → reduced traffic
+- Heartbeat system monitors connection (2s ping, 6s timeout)
+- Proper event handler cleanup prevents listener accumulation
+- Race condition fixed in join flow (await channel subscription)
+
+**Code Quality**
+- Removed OffscreenCanvas misuse (confetti stability)
+- Standardized error handling and validations
+- TypeScript strict mode compliance
+- Build time: ~2.4 seconds (135 modules)
+
+---
+
+## 🎯 Gameplay Mechanics
+
+**Entities:** 50+ unique items (birds, animals, objects, vehicles)
+- Each has Hindi translation (Hinglish dataset)
+- AI can generate new variations
+- Fallback list if API fails
+
+**Scoring System:**
+- Correct answer: +10 points
+- Streak multiplier (up to 3x): consecutive correct answers boost
+- High score tracked per session
+- Multiplayer leaderboard sorts by points
+
+**Lives System:**
+- Start with 3 ❤️ (hearts)
+- Wrong answer → lose 1 ❤️
+- Game ends at 0 ❤️ (you lose)
+- Displayed live during gameplay
+
+**Time System:**
+- ~5 seconds per question (automatic timeout)
+- No countdown timer shown (implicit)
+- Feedback: CORRECT ✅ / WRONG ❌
+
+---
+
+## 📋 Known Limitations & Future Enhancements
+
+**Current State:**
+- Questions are on-demand (no pre-generated deck limit)
+- Offline multiplayer not supported (requires Supabase)
+- Spectator mode not implemented
+- No persistent match history
+
+**Future Roadmap:**
+- 🧹 Clean/validate Hinglish dataset for better questions
+- ⚡ Optimize for large multiplayer lobbies
+- 🏆 Background music (orchestral 8-bit)
+- 💾 Database storage for match history
+- 👀 Spectator mode for eliminated players
+
+---
+
+## 🐛 Troubleshooting
+
+**WebSocket Connection Errors:**
+- Verify Supabase credentials in `.env` are correct
+- Check Supabase project is active (not paused)
+- Try refreshing page or hard reset (Ctrl+Shift+R)
+
+**Questions Not Loading:**
+- Check Gemini API key is valid and has quota remaining
+- App will fall back to hardcoded entity list if API fails
+- Verify `GEMINI_API_KEY` in `.env`
+
+**Multiplayer Not Working:**
+- Both players need valid Supabase credentials
+- Room code must be entered exactly (case-sensitive)
+- Try leaving and recreating the room
+- Check network connection is stable
+
+**Audio Not Playing:**
+- Some browsers require user interaction before audio works
+- Try clicking on game element first, then starting game
+- Check browser audio settings (not muted)
+
+---
+
+## 📦 Deployment
+
+### Vercel (Recommended)
+
+1. Push code to GitHub
+2. Import repo in Vercel
+3. Add environment variables in project settings:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `GEMINI_API_KEY`
+4. Deploy (auto-builds with `npm run build`)
+
+### Other Platforms
+
+Build command: `npm run build`  
+Output directory: `dist/`
+
+---
+
+## 📄 License
+
+[See LICENSE file](./LICENSE)
+
+---
+
+## 🙏 Credits
+
+Built with ❤️ and 🐦  
+Powered by React, Tailwind, Supabase, and Google Gemini AI
+
+**Team** · Chaitaneya & Contributors
+
+---
+
+## 📞 Support
+
+Questions or bug reports? Open an issue on GitHub!
+
+**Last Updated:** March 2026  
+**Build:** ✅ Production Ready (135 modules, 450KB minified)
 
 ### 🐛 Bugs Squashed
 | Issue | Fix |

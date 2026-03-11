@@ -1,76 +1,82 @@
-
-import { GameEntity, MultiplayerRoom, Player } from '../types';
-import { fetchNewGameEntities, shuffleArray } from './geminiService';
-import { FALLBACK_ENTITIES } from '../constants';
-import { supabase } from './supabaseClient';
-import { RealtimeChannel } from '@supabase/supabase-js';
-
-// Mock mode flag for development when Supabase is unavailable
-const USE_MOCK_MODE = import.meta.env.DEV;
-
-// Events
-type NetworkEvent =
-  | { type: 'ROOM_UPDATE'; room: MultiplayerRoom }
-  | { type: 'JOIN_REQUEST'; player: Player }
-  | { type: 'PLAYER_STATE'; playerId: string; score: number; lives: number; status: 'alive' | 'eliminated' }
-  | { type: 'PLAYER_LEFT'; playerId: string }
-  | { type: 'PLAYER_HEARTBEAT'; playerId: string };
+import { GameEntity, MultiplayerRoom, Player } from '../types'
+import { fetchNewGameEntities, shuffleArray } from './geminiService'
+import { FALLBACK_ENTITIES } from '../constants'
+import { supabase } from './supabaseClient'
+import { RealtimeChannel } from '@supabase/supabase-js'
 
 class MultiplayerService {
-  private room: MultiplayerRoom | null = null;
-  private currentPlayerId: string | null = null;
-  private channel: RealtimeChannel | null = null;
-  private listeners: ((room: MultiplayerRoom) => void)[] = [];
-  private heartbeatInterval: number | null = null;
-  private lastHeartbeats: Map<string, number> = new Map(); // Track last heartbeat from each player
-  private heartbeatTimeout: number | null = null;
-  private mockRooms: Map<string, MultiplayerRoom> = new Map(); // Mock storage for development
-  private isMockMode: boolean = false;
+  private room: MultiplayerRoom | null = null
+  private currentPlayerId: string | null = null
+  private channel: RealtimeChannel | null = null
+  private listeners: ((room: MultiplayerRoom) => void)[] = []
+  private heartbeatInterval: NodeJS.Timeout | null = null
+  private stateUpdateTimeout: NodeJS.Timeout | null = null
+  private isConnected = false
 
-  // Clean up function to run on unmount/leave
-  private cleanup: (() => void) | null = null;
+  // --------------------------------------------------
+  // LISTENERS - Subscription pattern for UI updates
+  // --------------------------------------------------
 
-  constructor() { 
-    // Check if Supabase is reachable, fallback to mock mode if not
-    this.initializeMockMode();
-  }
+  subscribe(callback: (room: MultiplayerRoom) => void) {
+    this.listeners.push(callback)
 
-  private initializeMockMode() {
-    // Auto-enable mock mode if Supabase is unavailable
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      this.isMockMode = true;
-      console.log('📱 MULTIPLAYER: Running in MOCK MODE (local development)');
+    // Immediately call with current state if available
+    if (this.room) {
+      callback(this.room)
+    }
+
+    // Return unsubscribe function
+    return () => {
+      this.listeners = this.listeners.filter(listener => listener !== callback)
     }
   }
 
-  // --- Public API ---
+  private notifyListeners() {
+    if (!this.room) return
 
-  subscribe(callback: (room: MultiplayerRoom) => void) {
-    this.listeners.push(callback);
-    if (this.room) callback(this.room);
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== callback);
-    };
+    // Create immutable copy to prevent accidental mutations
+    const copy: MultiplayerRoom = {
+      ...this.room,
+      players: [...this.room.players]
+    }
+
+    this.listeners.forEach(callback => callback(copy))
+  }
+
+  // --------------------------------------------------
+  // GETTERS
+  // --------------------------------------------------
+
+  getRoom(): MultiplayerRoom | null {
+    return this.room
   }
 
   getCurrentPlayer(): Player | undefined {
-    return this.room?.players.find(p => p.id === this.currentPlayerId);
+    return this.room?.players.find(p => p.id === this.currentPlayerId)
   }
 
-  getRoom() {
-    return this.room;
+  isHost(): boolean {
+    return this.getCurrentPlayer()?.isHost ?? false
   }
+
+  // --------------------------------------------------
+  // CREATE ROOM - Host starts here
+  // --------------------------------------------------
 
   async createRoom(playerName: string): Promise<string> {
-    const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-    this.currentPlayerId = `host-${Date.now()}`;
+    // Generate unique 4-character room code
+    const code = Math.random().toString(36).substring(2, 6).toUpperCase()
 
-    // Initial Entities
-    const initialEntities = shuffleArray(FALLBACK_ENTITIES).map((item, index) => ({
+    // Generate unique host ID
+    this.currentPlayerId = `host-${Date.now()}`
+
+    // Initialize with fallback entities (host will refresh these)
+    const entities = shuffleArray(FALLBACK_ENTITIES).map((item, i) => ({
       ...item,
-      id: `init-${Date.now()}-${index}`
-    }));
+      id: `init-${Date.now()}-${i}`
+    }))
 
+    // Create host player object
     const host: Player = {
       id: this.currentPlayerId,
       name: playerName,
@@ -79,72 +85,50 @@ class MultiplayerService {
       lives: 3,
       isReady: true,
       status: 'alive'
-    };
+    }
 
+    // Initialize room state
     this.room = {
       code,
       players: [host],
       status: 'waiting',
-      entities: initialEntities,
+      entities,
       roundCount: -1
-    };
-
-    if (this.isMockMode) {
-      // Mock mode: store room locally
-      this.mockRooms.set(code, { ...this.room });
-      console.log('🎮 Mock: Created room', code, 'as host');
-    } else {
-      // 1. Connect to Channel
-      this.connectToChannel(code);
     }
 
-    // 2. Fetch AI entities in background
-    fetchNewGameEntities().then(entities => {
-      if (this.room && this.room.code === code && this.room.status === 'waiting') {
-        this.room.entities = entities;
-        this.broadcastRoom(); // Send update to self and any early joiners
-      }
-    });
+    // Connect to realtime channel for this room and wait for it
+    try {
+      await this.connectToChannel(code)
+    } catch (err) {
+      console.error('Failed to connect to channel:', err)
+      throw err
+    }
 
-    return code;
+    // Fetch better game entities asynchronously
+    fetchNewGameEntities().then(aiEntities => {
+      if (!this.room) return
+      if (this.room.status !== 'waiting') return
+
+      // Update with AI-generated entities
+      this.room.entities = aiEntities
+      this.broadcastRoom()
+    }).catch(err => {
+      console.error('Failed to fetch AI entities:', err)
+      // Continue with fallback entities
+    })
+
+    return code
   }
 
-  joinRoom(code: string, playerName: string): boolean {
-    this.currentPlayerId = `p-${Date.now()}`;
+  // --------------------------------------------------
+  // JOIN ROOM - Non-host player joins here
+  // --------------------------------------------------
 
-    if (this.isMockMode) {
-      // Mock mode: simulate joining an existing room
-      const mockRoom = this.mockRooms.get(code);
-      if (!mockRoom) {
-        console.log('🎮 Mock: Room not found:', code);
-        return false;
-      }
+  async joinRoom(code: string, playerName: string): Promise<void> {
+    // Generate unique player ID
+    this.currentPlayerId = `p-${Date.now()}-${Math.random().toString(36).substring(7)}`
 
-      const me: Player = {
-        id: this.currentPlayerId,
-        name: playerName,
-        isHost: false,
-        score: 0,
-        lives: 3,
-        isReady: true,
-        status: 'alive'
-      };
-
-      // Add player to mock room
-      mockRoom.players.push(me);
-      this.room = { ...mockRoom, players: [...mockRoom.players] };
-      this.notifyListeners();
-      console.log('🎮 Mock: Joined room', code, 'as', playerName);
-      return true;
-    }
-
-    // We don't have the room state yet. We connect and ask to join.
-    // Ideally, we'd check if room exists via DB, but for Realtime-only:
-    // We subscribe, send a 'JOIN_REQUEST', and wait for the Host to send us the 'ROOM_UPDATE'.
-
-    this.connectToChannel(code);
-
-    // Optimistically create a player object to send
+    // Create player object
     const me: Player = {
       id: this.currentPlayerId,
       name: playerName,
@@ -153,253 +137,269 @@ class MultiplayerService {
       lives: 3,
       isReady: true,
       status: 'alive'
-    };
-
-    // Wait a brief moment for connection to establish, then ask to join
-    setTimeout(() => {
-      if (this.channel) {
-        this.channel.send({
-          type: 'broadcast',
-          event: 'JOIN_REQUEST',
-          payload: { player: me }
-        });
-      }
-    }, 500);
-
-    return true; // We assume valid for now, UI handles "Waiting for host..."
-  }
-
-  updatePlayerState(score: number, lives: number) {
-    if (!this.room || !this.currentPlayerId) return;
-
-    // Update local player state
-    const pIndex = this.room.players.findIndex(p => p.id === this.currentPlayerId);
-    if (pIndex !== -1) {
-      this.room.players[pIndex].score = score;
-      this.room.players[pIndex].lives = lives;
-      this.room.players[pIndex].status = lives <= 0 ? 'eliminated' : 'alive';
     }
 
-    if (this.isMockMode) {
-      // Mock mode: just update local and notify
-      this.notifyListeners();
-      return;
-    }
+    // Connect to room's channel and wait for subscription
+    await this.connectToChannel(code)
 
-    if (!this.channel) return;
-
-    // Send my update to everyone
-    this.channel.send({
-      type: 'broadcast',
-      event: 'PLAYER_STATE',
-      payload: {
-        playerId: this.currentPlayerId,
-        score,
-        lives,
-        status: lives <= 0 ? 'eliminated' : 'alive'
-      }
-    });
-  }
-
-  startGame() {
-    if (this.room && this.currentPlayerId && this.room.players.find(p => p.id === this.currentPlayerId)?.isHost) {
-      if (!this.room.entities || this.room.entities.length === 0) return;
-
-      this.room.status = 'playing';
-      this.broadcastRoom();
-      this.startHeartbeat(); // Start heartbeat when game begins
-    }
-  }
-
-  private startHeartbeat() {
-    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
-    
-    // Send heartbeat every 2 seconds
-    this.heartbeatInterval = window.setInterval(() => {
-      if (this.channel && this.currentPlayerId) {
-        this.channel.send({
-          type: 'broadcast',
-          event: 'PLAYER_HEARTBEAT',
-          payload: { playerId: this.currentPlayerId }
-        });
-      }
-    }, 2000);
-
-    // Check for dead players every 7 seconds (must miss 3+ heartbeats = 6+ seconds)
-    if (this.heartbeatTimeout) clearTimeout(this.heartbeatTimeout);
-    this.heartbeatTimeout = window.setInterval(() => {
-      this.checkDeadPlayers();
-    }, 7000);
-  }
-
-  private checkDeadPlayers() {
-    if (!this.room || !this.channel) return;
-
-    const now = Date.now();
-    const heartbeatThreshold = 6000; // 6 seconds without heartbeat = dead
-
-    this.room.players.forEach(player => {
-      if (player.status === 'alive') {
-        const lastHB = this.lastHeartbeats.get(player.id) || now;
-        if (now - lastHB > heartbeatThreshold) {
-          // Player hasn't heartbeat in 6+ seconds, mark as eliminated
-          player.status = 'eliminated';
-          this.notifyListeners();
-        }
-      }
-    });
-  }
-
-  private stopHeartbeat() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
-    if (this.heartbeatTimeout) {
-      clearInterval(this.heartbeatTimeout);
-      this.heartbeatTimeout = null;
-    }
-  }
-
-  leaveRoom() {
-    // Stop heartbeat
-    this.stopHeartbeat();
-
-    if (!this.isMockMode) {
-      // Send PLAYER_LEFT event before disconnecting (only in real mode)
-      if (this.channel && this.currentPlayerId) {
-        this.channel.send({
-          type: 'broadcast',
-          event: 'PLAYER_LEFT',
-          payload: { playerId: this.currentPlayerId }
-        });
-      }
-      
-      if (this.channel) {
-        this.channel.unsubscribe();
-        this.channel = null;
-      }
+    // Only send join request after channel is ready
+    if (this.channel && this.isConnected) {
+      this.channel.send({
+        type: 'broadcast',
+        event: 'JOIN_REQUEST',
+        payload: { player: me }
+      })
     } else {
-      // Mock mode: clean up local storage
-      if (this.room) {
-        this.mockRooms.delete(this.room.code);
+      console.warn('Channel not ready for JOIN_REQUEST')
+    }
+  }
+
+  // --------------------------------------------------
+  // UPDATE PLAYER STATE - Called during gameplay
+  // --------------------------------------------------
+
+  updatePlayerState(score: number, lives: number): void {
+    if (!this.room || !this.currentPlayerId) return
+
+    const player = this.room.players.find(p => p.id === this.currentPlayerId)
+    if (!player) return
+
+    // Update local state
+    player.score = score
+    player.lives = lives
+    player.status = lives <= 0 ? 'eliminated' : 'alive'
+
+    // Debounce state broadcasts to avoid flooding the network
+    // Only send every 500ms maximum
+    if (this.stateUpdateTimeout) {
+      clearTimeout(this.stateUpdateTimeout)
+    }
+
+    this.stateUpdateTimeout = setTimeout(() => {
+      if (!this.channel) return
+
+      this.channel.send({
+        type: 'broadcast',
+        event: 'PLAYER_STATE',
+        payload: {
+          playerId: this.currentPlayerId,
+          score,
+          lives,
+          status: player.status
+        }
+      })
+      this.stateUpdateTimeout = null
+    }, 100) // Debounce for 100ms
+  }
+
+  // --------------------------------------------------
+  // START GAME - Only host can call this
+  // --------------------------------------------------
+
+  startGame(): void {
+    if (!this.room) return
+
+    const me = this.getCurrentPlayer()
+    if (!me?.isHost) {
+      console.warn('Only host can start game')
+      return
+    }
+
+    // Transition room to playing state
+    this.room.status = 'playing'
+
+    // Broadcast updated room state to all players
+    this.broadcastRoom()
+
+    // Start heartbeat to detect disconnects
+    this.startHeartbeat()
+  }
+
+  // --------------------------------------------------
+  // HEARTBEAT - Detect disconnected players
+  // --------------------------------------------------
+
+  private startHeartbeat(): void {
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval)
+
+    this.heartbeatInterval = setInterval(() => {
+      if (!this.channel || !this.currentPlayerId) return
+
+      // Send heartbeat to let other players know we're alive
+      this.channel.send({
+        type: 'broadcast',
+        event: 'PLAYER_HEARTBEAT',
+        payload: { playerId: this.currentPlayerId, timestamp: Date.now() }
+      })
+    }, 5000) // Send heartbeat every 5 seconds
+  }
+
+  // --------------------------------------------------
+  // LEAVE ROOM - Cleanup and disconnect
+  // --------------------------------------------------
+
+  leaveRoom(): void {
+    // Notify other players that we're leaving
+    if (this.channel && this.currentPlayerId) {
+      this.channel.send({
+        type: 'broadcast',
+        event: 'PLAYER_LEFT',
+        payload: { playerId: this.currentPlayerId }
+      })
+
+      this.channel.unsubscribe()
+    }
+
+    // Clear all local state
+    this.room = null
+    this.currentPlayerId = null
+    this.isConnected = false
+
+    // Clear timers
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
+    }
+
+    if (this.stateUpdateTimeout) {
+      clearTimeout(this.stateUpdateTimeout)
+      this.stateUpdateTimeout = null
+    }
+
+    // Notify UI that we've left
+    this.notifyListeners()
+  }
+
+  // --------------------------------------------------
+  // CHANNEL CONNECTION - Setup realtime listeners
+  // --------------------------------------------------
+
+  private connectToChannel(code: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        // Disconnect from previous channel if any
+        if (this.channel) {
+          this.channel.unsubscribe()
+        }
+
+        // Create new channel for this room
+        this.channel = supabase.channel(`room-${code}`, {
+          config: { broadcast: { self: true } }
+        })
+
+        // Handler: Room state update from host
+        this.channel.on('broadcast', { event: 'ROOM_UPDATE' }, ({ payload }) => {
+          this.room = payload.room
+          this.notifyListeners()
+        })
+
+        // Handler: New player requesting to join (host receives)
+        this.channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
+          const me = this.getCurrentPlayer()
+
+          // Only host processes join requests
+          if (!me?.isHost) return
+          if (!this.room) return
+
+          const newPlayer = payload.player
+          const playerExists = this.room.players.some(p => p.id === newPlayer.id)
+
+          if (!playerExists) {
+            this.room.players.push(newPlayer)
+            // Broadcast updated room to all players
+            this.broadcastRoom()
+          }
+        })
+
+        // Handler: Player state update (score/lives)
+        this.channel.on('broadcast', { event: 'PLAYER_STATE' }, ({ payload }) => {
+          if (!this.room) return
+
+          const { playerId, score, lives, status } = payload
+          const player = this.room.players.find(p => p.id === playerId)
+
+          if (!player) return
+
+          player.score = score
+          player.lives = lives
+          player.status = status
+
+          this.notifyListeners()
+
+          // Check if game is now over (all players eliminated)
+          this.checkGameOver()
+        })
+
+        // Handler: Player left the room
+        this.channel.on('broadcast', { event: 'PLAYER_LEFT' }, ({ payload }) => {
+          if (!this.room) return
+
+          const player = this.room.players.find(p => p.id === payload.playerId)
+          if (player) {
+            player.status = 'eliminated'
+            this.notifyListeners()
+          }
+        })
+
+        // Handler: Heartbeat from other players (confirming connectivity)
+        this.channel.on('broadcast', { event: 'PLAYER_HEARTBEAT' }, ({ payload }) => {
+          // Just log the heartbeat - you can extend this to detect timeouts
+          // console.log(`Heartbeat from ${payload.playerId} at ${payload.timestamp}`)
+        })
+
+        // Subscribe and wait for connection
+        this.channel.subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') {
+            this.isConnected = true
+            resolve()
+          } else if (status === 'CHANNEL_ERROR' || err) {
+            this.isConnected = false
+            console.error('Channel subscription failed:', status, err)
+            reject(new Error(`Channel subscription failed: ${status}`))
+          }
+        })
+      } catch (error) {
+        console.error('Error connecting to channel:', error)
+        reject(error)
       }
-    }
-
-    this.room = null;
-    this.currentPlayerId = null;
-    this.lastHeartbeats.clear();
-    this.notifyListeners();
+    })
   }
 
-  // --- Private Helpers ---
+  // --------------------------------------------------
+  // CHECK GAME OVER - Synchronized end-game detection
+  // --------------------------------------------------
 
-  private connectToChannel(roomCode: string) {
-    if (this.isMockMode) {
-      // Mock mode: simulate channel subscription
-      console.log('🎮 Mock: Connected to room', roomCode);
-      return;
-    }
+  private checkGameOver(): void {
+    if (!this.room) return
 
-    if (this.channel) this.channel.unsubscribe();
+    // Check if all players are eliminated
+    const alivePlayers = this.room.players.filter(p => p.status === 'alive' && p.lives > 0)
 
-    this.channel = supabase.channel(`room-${roomCode}`, {
-      config: {
-        broadcast: { self: true } // Receive own messages? No, usually not needed but good for debugging
-      }
-    });
-
-    this.channel
-      .on('broadcast', { event: 'ROOM_UPDATE' }, ({ payload }) => {
-        this.room = payload.room;
-        this.notifyListeners();
-      })
-      .on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
-        // ONLY HOST processes join requests
-        if (this.room && this.currentPlayerId && this.room.players[0].id === this.currentPlayerId) {
-          const newPlayer = payload.player;
-          // Avoid duplicates
-          if (!this.room.players.find(p => p.id === newPlayer.id)) {
-            this.room.players.push(newPlayer);
-            this.broadcastRoom(); // Send full state back to everyone (including new joiner)
-          }
-        }
-      })
-      .on('broadcast', { event: 'PLAYER_STATE' }, ({ payload }) => {
-        if (this.room) {
-          const { playerId, score, lives, status } = payload;
-          const pIndex = this.room.players.findIndex(p => p.id === playerId);
-          if (pIndex !== -1) {
-            // Update the specific player
-            this.room.players[pIndex].score = score;
-            this.room.players[pIndex].lives = lives;
-            this.room.players[pIndex].status = status;
-
-            // IF HOST: Re-broadcast to keep late joiners in sync? 
-            // For now, we rely on everyone receiving the individual updates.
-            // But to be safe, the Host occasionally syncs the "Truth".
-            this.notifyListeners();
-          }
-        }
-      })
-      .on('broadcast', { event: 'PLAYER_LEFT' }, ({ payload }) => {
-        if (this.room) {
-          const { playerId } = payload;
-          // Mark player as eliminated when they leave
-          const pIndex = this.room.players.findIndex(p => p.id === playerId);
-          if (pIndex !== -1) {
-            this.room.players[pIndex].status = 'eliminated';
-            this.notifyListeners();
-          }
-        }
-      })
-      .on('broadcast', { event: 'PLAYER_HEARTBEAT' }, ({ payload }) => {
-        const { playerId } = payload;
-        // Update last heartbeat timestamp for this player
-        this.lastHeartbeats.set(playerId, Date.now());
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          // console.log("Connected to room", roomCode);
-        }
-      });
-  }
-
-  private notifyListeners() {
-    if (this.room) {
-      // Create a shallow copy to force React state updates
-      const roomCopy = {
-        ...this.room,
-        players: [...this.room.players]
-      };
-      this.listeners.forEach(cb => cb(roomCopy));
+    if (alivePlayers.length === 0 && this.room.players.length > 0) {
+      // All players are dead - game is finished
+      this.room.status = 'finished'
+      this.broadcastRoom()
     }
   }
 
-  private broadcastRoom() {
-    if (!this.room || (!this.channel && !this.isMockMode)) return;
-    
-    if (this.isMockMode) {
-      // Mock mode: store room locally and simulate broadcast
-      this.mockRooms.set(this.room.code, { ...this.room, players: [...this.room.players] });
-      this.notifyListeners(); // Update local
-      
-      // Simulate other players joining/updating
-      setTimeout(() => {
-        if (this.room && this.mockRooms.has(this.room.code)) {
-          this.notifyListeners();
-        }
-      }, 500);
-      return;
-    }
+  // --------------------------------------------------
+  // BROADCAST ROOM - Send room state to all players
+  // --------------------------------------------------
 
-    this.notifyListeners(); // Update local
-    this.channel!.send({
+  private broadcastRoom(): void {
+    if (!this.room || !this.channel) return
+
+    // Notify local listeners first (optimistic update)
+    this.notifyListeners()
+
+    // Broadcast to network
+    this.channel.send({
       type: 'broadcast',
       event: 'ROOM_UPDATE',
       payload: { room: this.room }
-    });
+    })
   }
 }
 
-export const multiplayer = new MultiplayerService();
+// Export singleton instance
+export const multiplayer = new MultiplayerService()
