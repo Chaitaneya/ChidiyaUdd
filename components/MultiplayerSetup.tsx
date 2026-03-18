@@ -45,12 +45,14 @@ const BackButton: React.FC<{
   defaultBack: () => void
 }> = ({ action, defaultBack }) => (
   <button
-    onClick={action || defaultBack}
-    className="absolute top-4 left-4 text-2xl text-white/80 hover:text-white active:scale-90 focus:outline-none z-50 transition-all"
-    aria-label="Go back"
-  >
-    ◀️
-  </button>
+  onClick={action || defaultBack}
+  className="absolute top-4 left-4 text-white/80 hover:text-white active:scale-90 focus:outline-none z-50 transition-all"
+  aria-label="Go back"
+>
+  <span className="text-3xl leading-none -translate-y-[1px] inline-block">
+    ←
+  </span>
+</button>
 )
 
 // Main component
@@ -137,7 +139,6 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
               }}
               className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
             >
-              <span className="text-2xl leading-none -translate-y-[4px] inline-block">👑</span>
               <span>HOST GAME</span>
             </Button>
 
@@ -149,7 +150,6 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
               variant="secondary"
               className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
             >
-              <span className="text-2xl leading-none -translate-y-[4px] inline-block">🎮</span>
               <span>JOIN GAME</span>
             </Button>
           </div>
@@ -162,14 +162,7 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
   if (view === 'create') {
     return (
       <div className="flex flex-col items-center justify-center h-full px-4 w-full relative">
-        <BackButton
-          action={() => {
-            setView('menu')
-            setName('')
-            setError('')
-          }}
-          defaultBack={onBack}
-        />
+        
 
         <div className="w-full max-w-sm animate-slide-up">
           <div className="bg-slate-800 border-4 border-black shadow-[8px_8px_0_0_#000] p-6 w-full">
@@ -215,15 +208,7 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
   if (view === 'join') {
     return (
       <div className="flex flex-col items-center justify-center h-full px-4 w-full relative">
-        <BackButton
-          action={() => {
-            setView('menu')
-            setName('')
-            setRoomCode('')
-            setError('')
-          }}
-          defaultBack={onBack}
-        />
+        
 
         <div className="w-full max-w-sm animate-slide-up">
           <div className="bg-slate-800 border-4 border-black shadow-[8px_8px_0_0_#000] p-6 w-full">

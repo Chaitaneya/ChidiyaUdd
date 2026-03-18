@@ -94,56 +94,58 @@ const GameOver: React.FC<GameOverProps> = ({
     const isGameActive = mpRoom.players.some((p) => p.status === 'alive');
 
     return (
-      <div className="w-full max-w-sm bg-white rounded-2xl p-4 text-slate-800 shadow-xl mb-4">
+      <div className="w-full max-w-sm bg-white p-4 text-slate-800 border-4 border-black shadow-[6px_6px_0_0_#000] mb-4">
         <h3 className="flex items-center justify-center gap-2 font-retro text-xl mb-4 border-b-2 border-slate-200 pb-2">
   {!isGameActive && (
     <span className="text-2xl inline-block -translate-y-[5px]">🏁</span>
   )}
-  <span>{isGameActive ? 'Live Standings' : 'Final Standings'}</span>
+  <span>{isGameActive ? 'LIVE SCOREBOARD' : 'SCOREBOARD'}</span>
 </h3>
 
         <div className="space-y-3">
           {sorted.map((p, idx) => (
             <div
-              key={p.id}
-              className={`flex items-center justify-between p-2 rounded-lg ${
-                p.id === myId
-                  ? 'bg-blue-100 border-2 border-blue-300'
-                  : 'bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-xl w-6">
-                  {idx === 0
-                    ? '🥇'
-                    : idx === 1
-                    ? '🥈'
-                    : idx === 2
-                    ? '🥉'
-                    : `${idx + 1}.`}
-                </span>
-                <div>
-                  <span className="font-bold">
-                    {p.name} {p.id === myId && '(You)'}
-                  </span>
-                  {p.status === 'eliminated' && (
-                    <div className="text-[10px] text-slate-400 uppercase">
-                      Eliminated
-                    </div>
-                  )}
-                </div>
-              </div>
+  key={p.id}
+  className={`flex items-center justify-between p-2 ${
+    p.id === myId
+      ? 'bg-blue-100 border-2 border-blue-300'
+      : 'bg-slate-50 border-2 border-black'
+  }`}
+>
+  <div className="flex items-center gap-3 w-full justify-start">
+    <span className="font-bold text-xl w-6 text-left">
+      {idx === 0
+        ? '🥇'
+        : idx === 1
+        ? '🥈'
+        : idx === 2
+        ? '🥉'
+        : `${idx + 1}.`}
+    </span>
 
-              {p.status === 'alive' ? (
-                <span className="font-retro text-xs text-green-600 border border-green-400 px-2 py-1 rounded bg-green-50">
-                  PLAYING…
-                </span>
-              ) : (
-                <span className="font-mono font-bold text-blue-600 text-xl">
-                  {p.score}
-                </span>
-              )}
-            </div>
+    <div className="flex flex-col items-start text-left">
+      <span className="font-bold">
+        {p.name} {p.id === myId && '(You)'}
+      </span>
+
+      {p.status === 'eliminated' && (
+        <div className="text-[10px] text-slate-400 uppercase">
+          Eliminated
+        </div>
+      )}
+    </div>
+  </div>
+
+  {p.status === 'alive' ? (
+    <span className="font-retro text-xs text-green-600 border border-green-400 px-2 py-1 bg-green-50">
+      PLAYING…
+    </span>
+  ) : (
+    <span className="font-mono font-bold text-blue-600 text-xl">
+      {p.score}
+    </span>
+  )}
+</div>
           ))}
         </div>
       </div>
@@ -195,9 +197,7 @@ const GameOver: React.FC<GameOverProps> = ({
               onClick={handleBackToLobbyClick}
               className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
             >
-              <span className="text-2xl leading-none -translate-y-[2px]">
-                👥
-              </span>
+              
               <span>BACK TO LOBBY</span>
             </Button>
 
@@ -206,9 +206,7 @@ const GameOver: React.FC<GameOverProps> = ({
               variant="secondary"
               className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
             >
-              <span className="text-2xl leading-none -translate-y-[2px]">
-                🏠
-              </span>
+              
               <span>BACK TO MENU</span>
             </Button>
           </>
@@ -219,9 +217,7 @@ const GameOver: React.FC<GameOverProps> = ({
               onClick={handleTryAgainClick}
               className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
             >
-              <span className="inline-flex items-center justify-center w-10 h-6 border-2 border-black bg-black/30 text-sm">
-                1P
-              </span>
+              
               <span>TRY AGAIN</span>
             </Button>
 
@@ -230,9 +226,7 @@ const GameOver: React.FC<GameOverProps> = ({
               variant="secondary"
               className="w-full text-lg py-5 flex items-center justify-center gap-4 font-retro uppercase"
             >
-              <span className="text-2xl leading-none -translate-y-[2px]">
-                🏠
-              </span>
+              
               <span>BACK TO MENU</span>
             </Button>
           </>

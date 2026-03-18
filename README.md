@@ -4,7 +4,7 @@
 
 # 🐦 Chidiya Udd - The Ultimate Bird Brain Game! 
 
-Test your knowledge in the fastest quiz game with **real-time multiplayer action**, powered by Google's Gemini AI! 🤖✨
+Test your knowledge in the fastest quiz game with **real-time multiplayer action**
 
 > **Challenge your friends. Don't let the subjects fool you!**
 
@@ -13,7 +13,6 @@ Test your knowledge in the fastest quiz game with **real-time multiplayer action
 ## 🎮 Core Features
 
 ✅ **Lightning-Fast Multiplayer** - Play with friends in real-time via Supabase Realtime  
-✅ **AI-Powered Questions** - Gemini API generates dynamic quiz content  
 ✅ **Responsive Design** - Works flawlessly on mobile, tablet, and desktop  
 ✅ **Retro Pixel UI** - Consistent, polished 8-bit aesthetic across all screens  
 ✅ **Live Feedback** - 💯 Celebrate wins, 🤦 Learn from mistakes  
@@ -32,7 +31,6 @@ Test your knowledge in the fastest quiz game with **real-time multiplayer action
 | **Build** | Vite 6.2 (⚡ 2.4s builds) |
 | **Styling** | Tailwind CSS + custom retro fonts |
 | **Realtime** | Supabase Realtime v2 (broadcast channels) |
-| **AI** | Google Gemini API (dynamic entity generation) |
 | **Audio** | Web Audio API (custom sound synthesis) |
 | **Animations** | Canvas Confetti (high-performance particle effects) |
 
@@ -66,7 +64,6 @@ chidiyaUddV2/
 
 ### Single Player
 1. Tap **"SINGLE PLAYER"** from the main menu
-2. Answer AI-generated questions about entities (animals, objects, concepts)
 3. **Decide**: Does it FLY? 🐦 or NOT FLY? 🚫
 4. Correct → +10 points (streak multiplier up to 3x)
 5. Wrong → Lose 1 ❤️ (start with 3)

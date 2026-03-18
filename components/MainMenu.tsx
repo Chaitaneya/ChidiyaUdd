@@ -210,9 +210,17 @@ const MainMenu: React.FC<MainMenuProps> = ({
             isSplashActive ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          <div className="bg-orange-500 text-black px-4 py-2 border-2 border-black font-retro text-xs shadow-[4px_4px_0_0_#000]">
-            🏆 TOP SCORE: {highScore}
-          </div>
+          <div className="bg-orange-500 text-black px-4 py-2 border-2 border-black font-retro text-xs shadow-[4px_4px_0_0_#000] flex items-center gap-2">
+  
+  <img
+    src="\assets\emojis\02.png"
+    alt="trophy"
+    className="w-7 h-7"
+    style={{ imageRendering: 'pixelated' }}
+  />
+
+  <span>TOP SCORE: {highScore}</span>
+</div>
         </div>
       </div>
 
@@ -227,7 +235,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
           disabled={isLoading}
           className="w-full text-lg py-5 flex items-center justify-center gap-3 font-retro uppercase"
         >
-          <span className="text-2xl leading-none  -translate-y-[5px]">🕹️</span>
           <span>{isLoading ? 'LOADING...' : 'Single Player'}</span>
         </Button>
 
@@ -236,7 +243,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
           variant="secondary"
           className="w-full text-lg py-5 flex items-center justify-center gap-3 font-retro uppercase"
         >
-          <span className="text-2xl leading-none  -translate-y-[8px]">👥</span>
           <span>Multiplayer</span>
         </Button>
       </div>

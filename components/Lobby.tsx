@@ -84,18 +84,18 @@ const Lobby: React.FC<LobbyProps> = ({ onStartGame, onLeave }) => {
       {/* HEADER */}
       <div className="w-full flex items-center justify-between mb-8">
         <button
-          onClick={handleLeave}
-          className="text-2xl text-white hover:opacity-80 transition-opacity active:scale-90"
-          aria-label="Leave room"
-        >
-          ◀️
-        </button>
+  onClick={handleLeave}
+  className="text-2xl text-white hover:opacity-80 transition-opacity active:scale-90"
+  aria-label="Leave room"
+>
+  ←
+</button>
 
         <h2 className="text-xl text-yellow-400 font-retro drop-shadow-[2px_2px_0_#000]">
           {headerTitle}
         </h2>
 
-        <div className="w-6" />
+        <div className="w-10" />
       </div>
 
       {/* ROOM CODE */}

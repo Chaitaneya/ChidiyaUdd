@@ -10,7 +10,7 @@ interface GameScreenProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
   initialEntities: GameEntity[];
-  isMultiplayer?: boolean; // New Prop
+  isMultiplayer?: boolean;
 }
 
 interface VisualEffect {
@@ -43,8 +43,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
   const [timeLeft, setTimeLeft] = useState(100); // Percentage
   const [feedback, setFeedback] = useState<'hit' | 'miss' | 'safe' | null>(null);
   const [isPaused, setIsPaused] = useState(false);
-  const [showQuitConfirm, setShowQuitConfirm] = useState(false); // New state for exit confirmation
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted());
+  const [isEliminated, setIsEliminated] = useState(false);
   
   // Visual Effects State
   const [effects, setEffects] = useState<VisualEffect[]>([]);
@@ -91,7 +92,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
     // Send state update to network (debounced in service)
     multiplayer.updatePlayerState(score, lives);
   }, [score, lives, isMultiplayer]);
-
 
   // Prefetch more entities when running low (Single Player Only)
   useEffect(() => {
@@ -167,38 +167,32 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
     } else {
       triggerSmoke();
       setFeedback('miss');
-      setStreak(0); // Reset streak on fail
+      setStreak(0);
       audio.playFail();
       if (navigator.vibrate) navigator.vibrate(200);
 
-      setLives(l => {
+      setLives((l) => {
         const newLives = l - 1;
-        
+
         if (newLives <= 0) {
           audio.playCrash();
           audio.playGameOver();
           if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
-          
+
           if (isMultiplayer) {
-            // Multiplayer: Send final state to network
-            // Room will detect when all players are eliminated
-            // and broadcast room.status = 'finished'
             multiplayer.updatePlayerState(score, 0);
-            
-            // Don't end game here - wait for room.status === 'finished'
-            // to be broadcasted to all players
+            setIsEliminated(true);
           } else {
-            // Single player: End game immediately
             setTimeout(() => onGameOver(score), 1000);
           }
         } else {
-          // Lost a life but still alive
           setTimeout(nextRound, 1700);
         }
+
         return newLives;
       });
     }
-  }, [score, onGameOver, onExit, isMultiplayer]);
+  }, [score, onGameOver, isMultiplayer]);
 
   const nextRound = () => {
     // If we ran out of entities (Multiplayer end condition usually)
@@ -243,8 +237,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
 
   // Main Game Loop using requestAnimationFrame for smoothness
   useEffect(() => {
-    if (!roundActive || isPaused || showQuitConfirm || !currentEntity) return;
-
+    if (!roundActive || isPaused || showQuitConfirm || !currentEntity || isEliminated) return;
     const loop = () => {
       const elapsed = Date.now() - startTimeRef.current;
       const remainingPct = 100 - (elapsed / gameSpeed) * 100;
@@ -271,7 +264,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [roundActive, currentIdx, entities, gameSpeed, endRound, isPaused, showQuitConfirm, currentEntity]);
-
 
   const handleFlyAction = () => {
     if (!roundActive || hasActedRef.current || isPaused || showQuitConfirm) return;
@@ -314,9 +306,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
   };
 
   const getFeedbackText = () => {
-    if (feedback === 'miss') return 'WRONG! ❌';
-    if (feedback === 'hit') return 'GREAT! ✨';
-    if (feedback === 'safe') return 'CORRECT! ✅'; 
+    if (feedback === 'miss') return 'WRONG!';
+    if (feedback === 'hit') return 'GREAT!';
+    if (feedback === 'safe') return 'CORRECT!'; 
     return '';
   };
 
@@ -351,6 +343,22 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
 
   return (
     <div className="flex flex-col items-center h-full w-full relative pt-4 pb-4 select-none">
+
+      {isEliminated && (
+        <div className="absolute inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center gap-6">
+          <h2 className="text-3xl font-retro text-red-500 drop-shadow-[2px_2px_0_#000]">
+            YOU ARE OUT
+          </h2>
+
+          <div className="bg-slate-800 px-6 py-4 border-4 border-white shadow-[6px_6px_0_0_#000] text-green-400 font-retro text-2xl">
+            SCORE: {score}
+          </div>
+
+          <p className="text-slate-400 font-retro text-xs tracking-widest">
+            Waiting for other players...
+          </p>
+        </div>
+      )}
       
       {/* Effects Layer */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-50">
@@ -376,70 +384,76 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
       <div className="w-full max-w-md px-2 sm:px-4 h-12 sm:h-14 flex justify-between items-start z-20 font-retro relative shrink-0">
         {/* Left: HP */}
         <div className="flex flex-col items-start gap-0.5 sm:gap-1" role="status" aria-label={`Lives remaining: ${lives}`}>
-          <span className="text-red-400 text-[8px] sm:text-xs tracking-widest uppercase">Health</span>
-          <div className="flex gap-0.5 sm:gap-1 h-6 sm:h-8 items-center">
-            {Array.from({ length: MAX_LIVES }).map((_, i) => (
-                <div key={i} className="text-lg sm:text-2xl transition-opacity duration-200" style={{ opacity: i < lives ? 1 : 0.3 }}>
-                    {i < lives ? '❤️' : '🖤'}
-                </div>
-            ))}
+          <span className="text-red-400 text-[8px] sm:text-xs tracking-widest uppercase">
+            Health
+          </span>
+
+          <div className="flex gap-1 sm:gap-2 h-6 sm:h-8 items-center">
+          {Array.from({ length: MAX_LIVES }).map((_, i) => (
+            <div key={i} style={{ opacity: i < lives ? 1 : 0.3 }}>
+              <img
+                src={i < lives ? '/assets/emojis/heart.png' : '/assets/emojis/heartless.png'}
+                alt="heart"
+                className="w-6 h-6 sm:w-8 sm:h-8"
+                style={{ imageRendering: 'pixelated' }}
+              />
+            </div>
+          ))}
           </div>
         </div>
         
         {/* Right: Score & Controls */}
         <div className="flex items-center gap-3">
-  
-  {/* SCORE */}
-  <div className="flex flex-col items-center gap-1">
-    <span className="text-green-400 text-[10px] sm:text-xs tracking-widest uppercase">
-      Score
-    </span>
-    <div className="relative bg-slate-800 px-3 py-1 h-10 border-2 border-slate-500 shadow-[2px_2px_0_0_#000] text-green-400 text-sm sm:text-base flex items-center justify-center min-w-[80px]">
-      {score.toString().padStart(4, '0')}
-      {streak > 1 && (
-        <div className="absolute -bottom-3 right-0 text-[9px] text-orange-400 font-bold animate-pulse whitespace-nowrap bg-black px-1 border border-orange-500">
-          🔥 x{streak}
+          {/* SCORE */}
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-green-400 text-[10px] sm:text-xs tracking-widest uppercase">
+              Score
+            </span>
+            <div className="relative bg-slate-800 px-3 py-1 h-10 border-2 border-slate-500 shadow-[2px_2px_0_0_#000] text-green-400 text-sm sm:text-base flex items-center justify-center min-w-[80px]">
+              {score.toString().padStart(4, '0')}
+              {streak > 1 && (
+                <div className="absolute -bottom-3 right-0 text-[9px] text-orange-400 font-bold animate-pulse whitespace-nowrap bg-black px-1 border border-orange-500">
+                  🔥 x{streak}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SOUND */}
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-slate-400 text-[10px] sm:text-xs tracking-widest uppercase">
+              Sound
+            </span>
+            <button
+              onClick={handleMuteToggle}
+              className="w-10 h-10 bg-slate-700 border-2 border-black flex items-center justify-center shadow-[2px_2px_0_0_#000] hover:bg-slate-600 active:translate-y-1 focus:outline-none"
+            >
+              <span className="text-xl leading-none -translate-y-[2px]">
+                {isMuted ? '🔇' : '🔊'}
+              </span>
+            </button>
+          </div>
+
+          {/* MENU / EXIT */}
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-slate-400 text-[10px] sm:text-xs tracking-widest uppercase">
+              {isMultiplayer ? 'Exit' : 'Menu'}
+            </span>
+            <button
+              onClick={isMultiplayer ? () => setShowQuitConfirm(true) : handlePauseToggle}
+              className={`
+                w-10 h-10 border-2 border-black flex items-center justify-center text-white text-lg leading-none shadow-[2px_2px_0_0_#000] active:translate-y-1 focus:outline-none transition-colors
+                ${
+                  isMultiplayer
+                    ? 'bg-red-600 hover:bg-red-500'
+                    : 'bg-slate-700 hover:bg-slate-600'
+                }
+              `}
+            >
+              {isMultiplayer ? '✕' : isPaused ? '▶' : '||'}
+            </button>
+          </div>
         </div>
-      )}
-    </div>
-  </div>
-
-  {/* SOUND */}
-  <div className="flex flex-col items-center gap-1">
-    <span className="text-slate-400 text-[10px] sm:text-xs tracking-widest uppercase">
-      Sound
-    </span>
-    <button
-  onClick={handleMuteToggle}
-  className="w-10 h-10 bg-slate-700 border-2 border-black flex items-center justify-center shadow-[2px_2px_0_0_#000] hover:bg-slate-600 active:translate-y-1 focus:outline-none"
->
-  <span className="text-xl leading-none -translate-y-[2px]">
-    {isMuted ? '🔇' : '🔊'}
-  </span>
-</button>
-  </div>
-
-  {/* MENU / EXIT */}
-  <div className="flex flex-col items-center gap-1">
-    <span className="text-slate-400 text-[10px] sm:text-xs tracking-widest uppercase">
-      {isMultiplayer ? 'Exit' : 'Menu'}
-    </span>
-    <button
-      onClick={isMultiplayer ? () => setShowQuitConfirm(true) : handlePauseToggle}
-      className={`
-        w-10 h-10 border-2 border-black flex items-center justify-center text-white text-lg leading-none shadow-[2px_2px_0_0_#000] active:translate-y-1 focus:outline-none transition-colors
-        ${
-          isMultiplayer
-            ? 'bg-red-600 hover:bg-red-500'
-            : 'bg-slate-700 hover:bg-slate-600'
-        }
-      `}
-    >
-      {isMultiplayer ? '✕' : isPaused ? '▶' : '||'}
-    </button>
-  </div>
-
-</div>
       </div>
 
       {/* Pause Overlay */}
@@ -469,28 +483,22 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
          
          <div className="h-12 sm:h-16 w-full flex items-center justify-center mb-1 sm:mb-2 shrink-0 relative">
              {feedback && (
-  <div
-    className={`
-      flex items-center justify-center gap-4
-      text-3xl sm:text-4xl md:text-5xl
-      font-retro animate-pop-in
-      ${feedback === 'miss' ? 'text-red-500' : 'text-green-400'}
-    `}
-    style={{ textShadow: '3px 3px 0px #000' }}
-  >
-    <span className="leading-none">
-      {feedback === 'miss'
-        ? 'WRONG!'
-        : feedback === 'hit'
-        ? 'GREAT!'
-        : 'CORRECT!'}
-    </span>
-
-    <span className="text-4xl leading-none -translate-y-[4px]">
-      {feedback === 'miss' ? '✖' : '✔'}
-    </span>
-  </div>
-)}
+              <div
+                className={`
+                  flex items-center justify-center
+                  text-3xl sm:text-4xl md:text-5xl
+                  font-retro animate-pop-in
+                  ${feedback === 'miss' ? 'text-red-500' : 'text-green-400'}
+                `}
+                style={{ textShadow: '3px 3px 0px #000' }}
+              >
+                {feedback === 'miss'
+                  ? 'WRONG!'
+                  : feedback === 'hit'
+                  ? 'GREAT!'
+                  : 'CORRECT!'}
+              </div>
+            )}
          </div>
          
          <div className={`
@@ -534,9 +542,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
               focus:outline-none
             `}
             onClick={handleFlyAction}
-            disabled={!roundActive}
+            disabled={!roundActive || isEliminated}
          >
-            FLY! 🦅
+            FLY!
          </button>
       </div>
 

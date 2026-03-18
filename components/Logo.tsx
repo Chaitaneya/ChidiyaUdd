@@ -11,9 +11,12 @@ const Logo: React.FC<LogoProps> = ({ className = '', style = {} }) => {
     <div className={`flex flex-col items-center justify-center w-full ${className}`} style={style}>
       {/* Logo Container - Only the bird moves! */}
       <div className="inline-block relative">
-        <div className="text-6xl sm:text-7xl md:text-8xl filter drop-shadow-[4px_4px_0_rgba(0,0,0,1)] wiggle inline-block">
-          🐦
-        </div>
+        <img
+  src="\assets\emojis\ChidiyaUdd.gif"
+  alt="Chidiya Udd"
+  className="w-36 sm:w-40 md:w-44 lg:w-48 drop-shadow-[4px_4px_0_rgba(0,0,0,1)] wiggle"
+  style={{ imageRendering: 'pixelated' }}
+/>
       </div>
       
       <div className="relative text-center mt-2 sm:mt-3 px-4 sm:px-6 w-full">
