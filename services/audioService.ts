@@ -131,27 +131,43 @@ class AudioService {
     this.playTone(659.25, 'sine', 0.2, 0.1, 0.1); // E5
   }
 
-  playFail() {
-    // Low pitched "Buzz"
-    if (this.muted) return;
-    try {
-      const ctx = this.getContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+  // playFail() {
+  //   // Low pitched "Buzz"
+  //   if (this.muted) return;
+  //   try {
+  //     const ctx = this.getContext();
+  //     const osc = ctx.createOscillator();
+  //     const gain = ctx.createGain();
       
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(150, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(50, ctx.currentTime + 0.3);
+  //     osc.type = 'sawtooth';
+  //     osc.frequency.setValueAtTime(150, ctx.currentTime);
+  //     osc.frequency.linearRampToValueAtTime(50, ctx.currentTime + 0.3);
       
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+  //     gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  //     gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.3);
       
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.3);
-    } catch(e) {}
-  }
+  //     osc.connect(gain);
+  //     gain.connect(ctx.destination);
+  //     osc.start();
+  //     osc.stop(ctx.currentTime + 0.3);
+  //   } catch(e) {}
+  // }
+
+  private failSounds = [
+  new Audio('/assets/sounds/CHICKEN.m4a'),
+  new Audio('/assets/sounds/MEOW01.m4a'),
+  new Audio('/assets/sounds/MEOW02.m4a')
+];
+
+playFail() {
+  if (this.muted) return;
+
+  try {
+    const sound = this.failSounds[Math.floor(Math.random() * this.failSounds.length)];
+    sound.currentTime = 0;
+    sound.play();
+  } catch (e) {}
+}
 
   playClick() {
     // Short blip

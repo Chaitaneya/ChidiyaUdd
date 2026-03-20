@@ -1,7 +1,4 @@
 dataset
 
-main bird
-
 auth
 
-sahi galat wale emoji’s

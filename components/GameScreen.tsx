@@ -57,6 +57,14 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
   const spokenIdxRef = useRef<number>(-1);
   const targetSpeedRef = useRef(INITIAL_SPEED);
 
+  const successEmojis = ['🐦', '💨', '🥶', '🔥'];
+  const failEmojis = ['🐔', '💀', '🐔', '😵‍💫'];
+
+  const getRandom = (arr: string[]) => {
+  return arr[Math.floor(Math.random() * arr.length)];
+  };
+
+
   // Sync ref with state for closure access
   useEffect(() => {
     targetSpeedRef.current = targetSpeed;
@@ -118,8 +126,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
       id: Date.now() + i,
       type: 'feather',
       x: Math.random() * 90 + 5,
-      y: -10,
-      emoji: '💯',
+      y: Math.random() * 10 + 5,
+      emoji: getRandom(successEmojis),
       delay: Math.random() * 0.2
     }));
     setEffects(prev => [...prev, ...newEffects]);
@@ -131,7 +139,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEnti
       type: 'smoke',
       x: 50 + (Math.random() * 20 - 10),
       y: 40 + (Math.random() * 20 - 10),
-      emoji: '🤦',
+      emoji: getRandom(failEmojis),
       delay: Math.random() * 0.2
     }));
     setEffects(prev => [...prev, ...newEffects]);
