@@ -3,13 +3,15 @@ import { GameState, GameEntity } from './types';
 import { FALLBACK_ENTITIES } from './constants';
 import { shuffleArray } from './services/geminiService';
 import { multiplayer } from './services/multiplayerService';
+import { UserProvider } from './contexts/UserContext';
 import MainMenu from './components/MainMenu';
 import GameScreen from './components/GameScreen';
 import GameOver from './components/GameOver';
 import MultiplayerSetup from './components/MultiplayerSetup';
 import Lobby from './components/Lobby';
 
-const App: React.FC = () => {
+// Inner app component that uses the user context
+const AppContent: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
   const [entities, setEntities] = useState<GameEntity[]>([]);
   const [score, setScore] = useState(0);
@@ -176,5 +178,12 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+// Wrap the entire app with UserProvider
+const App: React.FC = () => (
+  <UserProvider>
+    <AppContent />
+  </UserProvider>
+);
 
 export default App;

@@ -158,7 +158,7 @@ export const FALLBACK_ENTITIES: GameEntity[] = [
   { id: '150', name: 'Finch', translation: 'फिंच', canFly: true, emoji: '🐦' },
 ];
 
-export const INITIAL_SPEED = 2250; // Increased by 0.25s (was 2000)
-export const MIN_SPEED = 800; // 0.8 seconds (fastest)
-export const SPEED_DECREMENT = 50; // Speed up by 50ms every correct answer
+export const INITIAL_SPEED = 1400; 
+export const MIN_SPEED = 500; 
+export const SPEED_DECREMENT = 150; 
 export const MAX_LIVES = 3;
