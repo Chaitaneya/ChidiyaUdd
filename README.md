@@ -386,4 +386,4 @@ Want to add features? Fork and submit a PR!
 
 ---
 
-**Made with 🐦 and ☕ for the love of Indian childhood games.**
+**Made for the love of Indian childhood games.**
