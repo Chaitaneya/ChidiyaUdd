@@ -4,6 +4,8 @@ import { FALLBACK_ENTITIES } from './constants';
 import { shuffleArray } from './services/geminiService';
 import { multiplayer } from './services/multiplayerService';
 import { UserProvider } from './contexts/UserContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { saveHighScore, getHighScore } from './utils/storage';
 import MainMenu from './components/MainMenu';
 import GameScreen from './components/GameScreen';
 import GameOver from './components/GameOver';
@@ -23,9 +25,10 @@ const AppContent: React.FC = () => {
 
   // Load High Score on Mount
   useEffect(() => {
-    const saved = localStorage.getItem('chidiya_udd_highscore');
-    if (saved) {
-      setHighScore(parseInt(saved, 10));
+    // 🔒 Load encrypted high score
+    const saved = getHighScore();
+    if (saved > 0) {
+      setHighScore(saved);
     }
 
     const timer = setTimeout(() => {
@@ -95,7 +98,8 @@ const AppContent: React.FC = () => {
     if (gameState === GameState.PLAYING && !multiplayer.getRoom()) {
       if (finalScore > highScore) {
         setHighScore(finalScore);
-        localStorage.setItem('chidiya_udd_highscore', finalScore.toString());
+        // 🔒 Save encrypted high score
+        saveHighScore(finalScore);
       }
     }
 

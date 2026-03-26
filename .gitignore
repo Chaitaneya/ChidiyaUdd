@@ -26,3 +26,8 @@ dist-ssr
 # Screenshots and local files
 Files/
 screenshots/
+
+# Environment variables - NEVER commit
+.env
+.env.local
+.env.*.local

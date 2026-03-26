@@ -89,7 +89,9 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
       onGameStart()
     } catch (err) {
       console.error('Failed to create room:', err)
-      setError('FAILED TO CREATE ROOM')
+      // 🔒 Show specific validation error from service if available
+      const errorMessage = err instanceof Error ? err.message : 'FAILED TO CREATE ROOM'
+      setError(errorMessage)
       setIsLoading(false)
     }
   }
@@ -115,7 +117,9 @@ const MultiplayerSetup: React.FC<MultiplayerSetupProps> = ({ onGameStart, onBack
       onGameStart()
     } catch (err) {
       console.error('Failed to join room:', err)
-      setError('FAILED TO JOIN ROOM')
+      // 🔒 Show specific validation error from service if available
+      const errorMessage = err instanceof Error ? err.message : 'FAILED TO JOIN ROOM'
+      setError(errorMessage)
       setIsLoading(false)
     }
   }
