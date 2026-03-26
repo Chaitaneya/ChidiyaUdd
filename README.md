@@ -6,20 +6,20 @@ A lightning-fast quiz game with **real-time multiplayer action**, retro pixel ae
 
 ---
 
-## 🎮 What is Chidiya Udd?
+## What is Chidiya Udd?
 
 **Chidiya Udd** (चिड़िया उड़ - "Flying Bird") is a childhood game from India where you must quickly decide: **Can this entity fly or not?**
 
-- ⚡ **Single-Player Mode** - Beat your personal best score
-- 🎯 **Real-Time Multiplayer** - Play simultaneously with friends
-- 🎨 **Retro Pixel Aesthetic** - Nostalgic 8-bit inspired UI
-- 🎤 **Hindi Text-to-Speech** - Hear entity names in Indian accent
-- 🏆 **Streak & Scoring System** - Multiply your points with consecutive correct answers
-- 📱 **Fully Responsive** - Works on mobile, tablet, desktop
+-  **Single-Player Mode** - Beat your personal best score
+-  **Real-Time Multiplayer** - Play simultaneously with friends
+-  **Retro Pixel Aesthetic** - Nostalgic 8-bit inspired UI
+-  **Hindi Text-to-Speech** - Hear entity names in Indian accent
+-  **Streak & Scoring System** - Multiply your points with consecutive correct answers
+-  **Fully Responsive** - Works on mobile, tablet, desktop
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 - Node.js 16+ 
@@ -228,7 +228,7 @@ chidiyaUddV2/
 
 ---
 
-## 🎮 Game Features (What's Actually Implemented)
+##  Game Features
 
 ### ✅ Single-Player Features
 - [x] Deck of 100 entities (animals, objects, Indian slang)
@@ -269,7 +269,7 @@ chidiyaUddV2/
 
 ---
 
-## 🔊 Audio Design
+##  Audio Design
 
 ### Sound Effects (Web Audio API Synthesis)
 - **Success** 🎵 - C5 → E5 ding-ding
@@ -286,7 +286,7 @@ chidiyaUddV2/
 
 ---
 
-## 🌐 Network Architecture (Multiplayer Deep Dive)
+##  Network Architecture (Multiplayer Deep Dive)
 
 ### Supabase Realtime Events
 
@@ -363,31 +363,6 @@ FALLBACK_ENTITIES = [...]  // 100 cards
 
 ---
 
-## 📱 Mobile & PWA Support
-
-This app works great on mobile:
-
-- **Responsive Design** - Full viewport coverage, touch-optimized
-- **PWA Installable** - "Add to Home Screen" on iOS/Android
-- **Offline Ready** - Service worker *capabilities* (service worker not currently enabled, but app structure supports it)
-- **Mobile Optimizations:**
-  - No zoom on input
-  - Full viewport height (no address bar cover)
-  - Touch-friendly buttons (min 44×44px)
-  - Audio auto-resume on user gesture
-
-### Install on iOS
-1. Open app in Safari
-2. Tap Share → Add to Home Screen
-3. Tap "Add"
-
-### Install on Android
-1. Open app in Chrome
-2. Tap ⋮ → Install app
-3. Tap "Install"
-
----
-
 ## 🤝 Contributing
 
 Want to add features? Fork and submit a PR!
@@ -411,4 +386,4 @@ Want to add features? Fork and submit a PR!
 
 ---
 
-**Made with 🐦 and ☕ for the love of Indian childhood games.**
+**Made for the love of Indian childhood games.**

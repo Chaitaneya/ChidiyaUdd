@@ -12,6 +12,8 @@ class MultiplayerService {
   private heartbeatInterval: NodeJS.Timeout | null = null
   private stateUpdateTimeout: NodeJS.Timeout | null = null
   private isConnected = false
+  private lastBroadcastTime: number = 0  // 🔒 Rate limiting tracker
+  private readonly BROADCAST_RATE_LIMIT_MS = 100  // Max 1 broadcast per 100ms
 
   // --------------------------------------------------
   // LISTENERS - Subscription pattern for UI updates
@@ -63,7 +65,24 @@ class MultiplayerService {
   // CREATE ROOM - Host starts here
   // --------------------------------------------------
 
+  // 🔒 SECURITY: Validate player name to prevent XSS/injection
+  private validatePlayerName(name: string): boolean {
+    if (!name || typeof name !== 'string') return false
+    const trimmed = name.trim()
+    // Check length (1-20 characters)
+    if (trimmed.length === 0 || trimmed.length > 20) return false
+    // Allow only alphanumeric, spaces, and underscores
+    // Prevents HTML/script injection
+    if (!/^[a-zA-Z0-9_\s]+$/.test(trimmed)) return false
+    return true
+  }
+
   async createRoom(playerName: string): Promise<string> {
+    // 🔒 Validate player name before using
+    if (!this.validatePlayerName(playerName)) {
+      throw new Error('Invalid player name. Use only letters, numbers, spaces, and underscores (1-20 chars)')
+    }
+
     // Generate unique 4-character room code
     const code = Math.random().toString(36).substring(2, 6).toUpperCase()
 
@@ -125,6 +144,11 @@ class MultiplayerService {
   // --------------------------------------------------
 
   async joinRoom(code: string, playerName: string): Promise<void> {
+    // 🔒 Validate player name before using
+    if (!this.validatePlayerName(playerName)) {
+      throw new Error('Invalid player name. Use only letters, numbers, spaces, and underscores (1-20 chars)')
+    }
+
     // Generate unique player ID
     this.currentPlayerId = `p-${Date.now()}-${Math.random().toString(36).substring(7)}`
 
@@ -177,6 +201,14 @@ class MultiplayerService {
 
     this.stateUpdateTimeout = setTimeout(() => {
       if (!this.channel) return
+
+      // 🔒 RATE LIMITING: Prevent realtime channel spam/DoS
+      const now = Date.now()
+      if (now - this.lastBroadcastTime < this.BROADCAST_RATE_LIMIT_MS) {
+        // Skip this broadcast if too soon after last one
+        return
+      }
+      this.lastBroadcastTime = now
 
       this.channel.send({
         type: 'broadcast',
@@ -388,6 +420,15 @@ class MultiplayerService {
 
   private broadcastRoom(): void {
     if (!this.room || !this.channel) return
+
+    // 🔒 RATE LIMITING: Prevent realtime channel spam
+    const now = Date.now()
+    if (now - this.lastBroadcastTime < this.BROADCAST_RATE_LIMIT_MS) {
+      // Still notify listeners locally (optimistic)
+      this.notifyListeners()
+      return
+    }
+    this.lastBroadcastTime = now
 
     // Notify local listeners first (optimistic update)
     this.notifyListeners()

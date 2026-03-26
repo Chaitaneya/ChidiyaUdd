@@ -11,9 +11,49 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
+// 🔒 SECURITY: Session timeout in milliseconds (30 minutes)
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
+
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [inactivityTimer, setInactivityTimer] = useState<NodeJS.Timeout | null>(null)
+
+  // 🔒 SECURITY: Reset inactivity timer on user activity
+  const resetInactivityTimer = () => {
+    if (inactivityTimer) {
+      clearTimeout(inactivityTimer)
+    }
+
+    // Only set timeout if user is logged in
+    if (session) {
+      const newTimer = setTimeout(() => {
+        console.warn('Session timeout due to inactivity')
+        authService.signOut()
+        setSession(null)
+      }, SESSION_TIMEOUT_MS)
+      setInactivityTimer(newTimer)
+    }
+  }
+
+  // 🔒 SECURITY: Track user activity to reset session timer
+  useEffect(() => {
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart']
+
+    const handleActivity = () => {
+      resetInactivityTimer()
+    }
+
+    events.forEach(event => {
+      window.addEventListener(event, handleActivity)
+    })
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, handleActivity)
+      })
+    }
+  }, [session, inactivityTimer])
 
   useEffect(() => {
     // Initialize auth listener
@@ -22,6 +62,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     authService.initAuthListener((newSession) => {
       setSession(newSession)
       setIsLoading(false)
+      // Reset inactivity timer when session changes
+      resetInactivityTimer()
     }).then(sub => {
       subscription = sub
     }).catch(error => {
@@ -31,6 +73,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       subscription?.unsubscribe()
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer)
+      }
     }
   }, [])
 
