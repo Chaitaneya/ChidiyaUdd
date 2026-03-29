@@ -3,7 +3,6 @@ import { multiplayer } from '../services/multiplayerService'
 import { MultiplayerRoom } from '../types'
 import Button from './Button'
 import { audio } from '../services/audioService'
-
 interface LobbyProps {
   onStartGame: () => void
   onLeave: () => void
