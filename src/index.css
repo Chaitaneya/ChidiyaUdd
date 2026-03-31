@@ -1,3 +1,23 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  /* This ensures your custom fonts from index.html are mapped to Tailwind classes */
+  --font-retro: "Press Start 2P", cursive;
+  --font-hindi: "VT323", monospace;
+}
+
+@layer base {
+  body {
+    /* Applying the base styles from your index.html directly into Tailwind's pipeline */
+    @apply bg-slate-950 text-slate-100 antialiased select-none overflow-hidden touch-none;
+    font-family: var(--font-hindi);
+    overscroll-behavior: none;
+  }
+}
+
+/* Custom utility for the retro background used in App.tsx */
+@layer utilities {
+  .theme-bg {
+    background: linear-gradient(180deg, #020617 0%, #172554 50%, #1e40af 100%);
+  }
+}
