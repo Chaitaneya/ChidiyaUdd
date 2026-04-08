@@ -9,6 +9,7 @@ class AuthService {
     'http://localhost:4173',
     'http://localhost:5173',
     // Production URLs - add your domain here
+    //'https://chidiyaaudd.vercel.app'
     'https://chidiyaa-lqixc0uzp-chaitaneyas-projects.vercel.app'
 ,
   ]
