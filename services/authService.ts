@@ -3,15 +3,12 @@ import type { Session, User } from '@supabase/supabase-js'
 
 class AuthService {
   private listeners: ((session: Session | null) => void)[] = []
-  // 🔒 SECURITY: Whitelist of allowed redirect URLs
-  private readonly ALLOWED_REDIRECT_URLS = [
+  // 🔒 SECURITY: Allowed redirect origins for OAuth
+  private readonly ALLOWED_REDIRECT_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:4173',
     'http://localhost:5173',
-    // Production URLs - add your domain here
-    //'https://chidiyaaudd.vercel.app'
-    'https://chidiyaa-lqixc0uzp-chaitaneyas-projects.vercel.app'
-,
+    // Production - any vercel.app deployment is allowed
   ]
 
   /**
@@ -20,10 +17,13 @@ class AuthService {
   private validateRedirectUrl(url: string): boolean {
     try {
       const urlObj = new URL(url)
-      // Check if URL is in whitelist or matches current origin
-      const isWhitelisted = this.ALLOWED_REDIRECT_URLS.includes(url)
+      // Allow localhost dev URLs
+      const isWhitelisted = this.ALLOWED_REDIRECT_ORIGINS.includes(urlObj.origin)
+      // Allow current origin (works for any Vercel deployment)
       const isCurrentOrigin = urlObj.origin === window.location.origin
-      return isWhitelisted || isCurrentOrigin
+      // Allow any vercel.app subdomain
+      const isVercel = urlObj.hostname.endsWith('.vercel.app')
+      return isWhitelisted || isCurrentOrigin || isVercel
     } catch {
       return false
     }
