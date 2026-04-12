@@ -201,7 +201,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
       >
         <div className="flex flex-col items-end gap-1 relative">
           <span className="text-slate-400 text-[8px] tracking-widest uppercase font-retro">
-            Login
+            {session ? 'Logout' : 'Login'}
           </span>
           <button
             onClick={handleAuthButtonClick}
