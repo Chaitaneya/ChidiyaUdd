@@ -6,14 +6,14 @@
  ╚██████╗██║  ██║██║██████╔╝██║   ██║   ██║  ██║    ╚██████╔╝██████╔╝██████╔╝
   ╚═════╝╚═╝  ╚═╝╚═╝╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═╝     ╚═════╝ ╚═════╝ ╚═════╝ 
                                                                                
-                     🐦 THE LEGENDARY BIRD BRAIN GAME 🐦
+                      THE LEGENDARY BIRD BRAIN GAME 
 ```
 
 <div align="center">
   <img src="./public/assets/emojis/ChidiyaUdd.gif" alt="Chidiya Udd - Flying Bird Logo" width="200" style="image-rendering: pixelated; border: 4px solid #000; padding: 10px; background: #1e293b;">
 </div>
 
-# 🎮 CHIDIYA UDD - A Retro Revival
+# 🎮 CHIDIYA UDD 
 
 > *"A childhood classic from the Indian streets, now reimagined as a fast-paced multiplayer brain-teaser with retro pixel vibes."*
 
@@ -136,15 +136,6 @@ docs/              ← Documentation (setup, deployment, security)
 
 ---
 
-## 📚 Documentation
-
-- **[Deployment Guide](./docs/deployment/VERCEL_DEPLOYMENT_GUIDE.md)** - Deploy to Vercel
-- **[Quick Start](./docs/deployment/QUICK_DEPLOYMENT.md)** - 5-minute deployment checklist
-- **[Supabase Setup](./docs/setup/SUPABASE_SETUP.md)** - Configure multiplayer
-- **[Auth Implementation](./docs/setup/AUTH_IMPLEMENTATION.md)** - Google OAuth setup
-
----
-
 ## 🎮 Demo
 
 ### Single Player
@@ -165,11 +156,6 @@ docs/              ← Documentation (setup, deployment, security)
 
 Found a bug? Want to add a feature? Please open an issue or submit a PR!
 
----
-
-## 📄 License
-
-MIT License - Feel free to use, modify, and share!
 
 ---
 
@@ -184,8 +170,7 @@ Modernized and reimagined for the web with love for retro gaming.
 
 ## 🔗 Links
 
-- **GitHub**: https://github.com/Chaitaneya/chidiyauddd
-- **Play Live**: https://chidiya-udd.vercel.app (coming soon)
+- **Play Live**: https://chidiyauddd.vercel.app
 - **Report Issues**: GitHub Issues
 
 ---
@@ -197,20 +182,6 @@ Modernized and reimagined for the web with love for retro gaming.
 ╚═══════════════════════════════════════════════════════════════╝
 ```
 
-### Build & Deploy
-
-```bash
-# Build for production
-npm run build
-
-# Preview build locally
-npm run preview
-
-# Deploy to Vercel
-# Just push to GitHub - Vercel auto-deploys
-```
-
----
 
 ## 🎯 How to Play
 
