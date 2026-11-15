@@ -125,8 +125,10 @@ const AppContent: React.FC = () => {
     setGameState(GameState.GAME_OVER);
   };
 
+  // 100dvh, not 100vh: on phones 100vh includes the area behind the browser bar,
+  // which pushed the centred game down and left a strip at the top.
   return (
-    <div className="min-h-screen bg-blue-900 flex items-center justify-center p-0 sm:p-4 font-mono">
+    <div className="h-[100dvh] overflow-hidden bg-blue-900 flex items-center justify-center p-0 sm:p-4 font-mono">
       {/* Retro pattern background */}
       <div
         className="fixed inset-0 opacity-10 pointer-events-none"
