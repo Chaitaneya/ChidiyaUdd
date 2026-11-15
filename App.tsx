@@ -1,123 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import { GameState, GameEntity } from './types';
-import { FALLBACK_ENTITIES } from './constants';
-import { shuffleArray } from './services/geminiService';
+import React, { useState, useEffect, useRef } from 'react';
+import { GameState, GameEntity, DeckMode } from './types';
+import { createDeck } from './services/entityService';
 import { multiplayer } from './services/multiplayerService';
-import { UserProvider } from './contexts/UserContext';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { saveHighScore, getHighScore } from './utils/storage';
+import { consumeLoginIntent } from './services/authService';
+import { audio } from './services/audioService';
+import { UserProvider, useUser } from './contexts/UserContext';
+import { saveHighScore, getHighScore, getSavedDeckMode, saveDeckMode } from './utils/storage';
 import MainMenu from './components/MainMenu';
 import GameScreen from './components/GameScreen';
+import MultiplayerGame from './components/MultiplayerGame';
 import GameOver from './components/GameOver';
 import MultiplayerSetup from './components/MultiplayerSetup';
 import Lobby from './components/Lobby';
+import LeaderMode from './components/LeaderMode';
 
-// Inner app component that uses the user context
+const SPLASH_MS = 2500;
+
 const AppContent: React.FC = () => {
+  const { session } = useUser();
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
   const [entities, setEntities] = useState<GameEntity[]>([]);
+  const [isMultiplayerGame, setIsMultiplayerGame] = useState(false);
+  const [gameKey, setGameKey] = useState(0);
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  // Splash Screen State
+  const [highScore, setHighScore] = useState(() => getHighScore());
+  const [isNewRecord, setIsNewRecord] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [mpNotice, setMpNotice] = useState<string | null>(null);
+  const [deckMode, setDeckMode] = useState<DeckMode>(() => getSavedDeckMode());
 
-  // Load High Score on Mount
+  const gameStateRef = useRef(gameState);
+  gameStateRef.current = gameState;
+  const startedMatchRef = useRef<string | null>(null);
+
   useEffect(() => {
-    // 🔒 Load encrypted high score
-    const saved = getHighScore();
-    if (saved > 0) {
-      setHighScore(saved);
-    }
-
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 2500);
-
+    audio.preload();
+    const timer = setTimeout(() => setShowSplash(false), SPLASH_MS);
     return () => clearTimeout(timer);
   }, []);
 
-  // 🔁 Start / Restart single-player game
-  const preloadGame = () => {
-    setLoading(true);
-    setTimeout(() => {
-      const startingData = shuffleArray(FALLBACK_ENTITIES).map((item, index) => ({
-        ...item,
-        id: `start-${Date.now()}-${index}`,
-      }));
-      setEntities(startingData);
-      setGameState(GameState.PLAYING);
-      setLoading(false);
-    }, 100);
-  };
-
-  const handleStartGame = () => {
-    preloadGame();
-  };
-
-  // 🆕 Try Again → restart game directly
-  const handleTryAgain = () => {
-    setScore(0);
-    preloadGame();
-  };
-
-  // 🆕 Back to Menu
-  const handleBackToMenu = () => {
-    if (multiplayer.getRoom()) {
-      multiplayer.leaveRoom();
+  // Back from Google login after tapping "Multiplayer": go straight there.
+  useEffect(() => {
+    if (session && consumeLoginIntent() === 'multiplayer') {
+      setGameState(GameState.MP_SETUP);
     }
+  }, [session]);
+
+  // Multiplayer navigation driven by the room: the host starting a match pulls
+  // everyone in (from the lobby or the results screen); the host leaving closes it.
+  useEffect(() => {
+    return multiplayer.subscribe((room) => {
+      const state = gameStateRef.current;
+      const matchKey = `${room.code}:${room.matchId}`;
+
+      if (
+        room.status === 'playing' &&
+        startedMatchRef.current !== matchKey &&
+        (state === GameState.MP_LOBBY || state === GameState.GAME_OVER)
+      ) {
+        startedMatchRef.current = matchKey;
+        setIsMultiplayerGame(true);
+        setGameKey((k) => k + 1);
+        setGameState(GameState.MP_PLAYING);
+      } else if (room.status === 'closed' && state === GameState.MP_LOBBY) {
+        multiplayer.leaveRoom();
+        setMpNotice('THE HOST LEFT THE ROOM');
+        setGameState(GameState.MP_SETUP);
+      }
+    });
+  }, []);
+
+  const changeDeckMode = (mode: DeckMode) => {
+    setDeckMode(mode);
+    saveDeckMode(mode);
+  };
+
+  const startSinglePlayer = () => {
+    setEntities(createDeck(deckMode, 'sp'));
+    setIsMultiplayerGame(false);
+    setScore(0);
+    setGameKey((k) => k + 1);
+    setGameState(GameState.PLAYING);
+  };
+
+  const leaveRoomIfAny = () => {
+    if (multiplayer.getRoom()) multiplayer.leaveRoom();
+  };
+
+  const handleBackToMenu = () => {
+    leaveRoomIfAny();
     setScore(0);
     setGameState(GameState.MENU);
   };
 
-  const handleMultiplayer = () => {
+  const handleOpenMultiplayer = () => {
+    setMpNotice(null);
     setGameState(GameState.MP_SETUP);
   };
 
-  const handleLobbyStart = () => {
+  const handleRoomReady = () => {
+    setMpNotice(null);
     setGameState(GameState.MP_LOBBY);
   };
 
-  const handleMPGameStart = () => {
-    const room = multiplayer.getRoom();
-    if (room && room.entities) {
-      setEntities(room.entities);
-      setGameState(GameState.PLAYING);
-    }
-  };
-
   const handleLobbyLeave = () => {
-    multiplayer.leaveRoom();
+    leaveRoomIfAny();
     setGameState(GameState.MP_SETUP);
   };
 
   const handleGameOver = (finalScore: number) => {
     setScore(finalScore);
-
-    if (gameState === GameState.PLAYING && !multiplayer.getRoom()) {
-      if (finalScore > highScore) {
-        setHighScore(finalScore);
-        // 🔒 Save encrypted high score
-        saveHighScore(finalScore);
-      }
+    const record = finalScore > 0 && finalScore > highScore;
+    setIsNewRecord(record);
+    if (record) {
+      setHighScore(finalScore);
+      saveHighScore(finalScore);
     }
-
     setGameState(GameState.GAME_OVER);
   };
 
-  const handleExitGame = () => {
-    if (multiplayer.getRoom()) {
-      multiplayer.leaveRoom();
-    }
-    setScore(0);
-    setGameState(GameState.MENU);
-  };
-
-  const handleGameOverBackToLobby = () => {
-    // Return to lobby without leaving the room
-    setScore(0);
-    setGameState(GameState.MP_LOBBY);
+  const handleMatchOver = () => {
+    setScore(multiplayer.getCurrentPlayer()?.score ?? 0);
+    setIsNewRecord(false);
+    setGameState(GameState.GAME_OVER);
   };
 
   return (
@@ -132,58 +137,68 @@ const AppContent: React.FC = () => {
       ></div>
 
       {/* Main App Container */}
-      <div className="w-full max-w-[480px] h-[100dvh] sm:h-[800px] theme-bg sm:border-4 border-black shadow-2xl overflow-hidden relative flex flex-col z-10">
+      <main className="w-full max-w-[480px] h-[100dvh] sm:h-[min(800px,calc(100dvh-2rem))] theme-bg sm:border-4 border-black shadow-2xl overflow-hidden relative flex flex-col z-10">
         {/* CRT Overlay */}
         <div className="absolute inset-0 scanlines z-50 pointer-events-none"></div>
 
         {gameState === GameState.MENU && (
           <MainMenu
-            onStart={handleStartGame}
-            onMultiplayer={handleMultiplayer}
-            isLoading={loading}
+            onStart={startSinglePlayer}
+            onMultiplayer={handleOpenMultiplayer}
+            onLeader={() => setGameState(GameState.LEADER)}
             highScore={highScore}
             isSplashActive={showSplash}
+            deckMode={deckMode}
+            onDeckModeChange={changeDeckMode}
           />
+        )}
+
+        {gameState === GameState.LEADER && (
+          <LeaderMode deckMode={deckMode} onDeckModeChange={changeDeckMode} onExit={() => setGameState(GameState.MENU)} />
         )}
 
         {gameState === GameState.MP_SETUP && (
           <MultiplayerSetup
-            onGameStart={handleLobbyStart}
-            onBack={() => setGameState(GameState.MENU)}
+            onRoomReady={handleRoomReady}
+            onBack={handleBackToMenu}
+            notice={mpNotice}
+            defaultDeckMode={deckMode}
+            onDeckModeChange={changeDeckMode}
           />
         )}
 
-        {gameState === GameState.MP_LOBBY && (
-          <Lobby
-            onStartGame={handleMPGameStart}
-            onLeave={handleLobbyLeave}
-          />
-        )}
+        {gameState === GameState.MP_LOBBY && <Lobby onLeave={handleLobbyLeave} />}
 
         {gameState === GameState.PLAYING && (
           <GameScreen
+            key={gameKey}
             onGameOver={handleGameOver}
-            onExit={handleExitGame}
+            onExit={handleBackToMenu}
             initialEntities={entities}
-            isMultiplayer={!!multiplayer.getRoom()}
+            deckMode={deckMode}
           />
+        )}
+
+        {gameState === GameState.MP_PLAYING && (
+          <MultiplayerGame key={gameKey} onMatchOver={handleMatchOver} onExit={handleBackToMenu} />
         )}
 
         {gameState === GameState.GAME_OVER && (
           <GameOver
             score={score}
             highScore={highScore}
-            onTryAgain={handleTryAgain}
+            isNewRecord={isNewRecord}
+            isMultiplayer={isMultiplayerGame}
+            onTryAgain={startSinglePlayer}
             onBackToMenu={handleBackToMenu}
-            onBackToLobby={handleGameOverBackToLobby}
+            onBackToLobby={() => setGameState(GameState.MP_LOBBY)}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 };
 
-// Wrap the entire app with UserProvider
 const App: React.FC = () => (
   <UserProvider>
     <AppContent />

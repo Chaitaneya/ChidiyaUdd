@@ -95,3 +95,25 @@ export function clearGameData(): void {
     console.error('Failed to clear game data:', err)
   }
 }
+
+/**
+ * Remember which deck (Family / Masala) the player picked last.
+ * Plain localStorage: this is a preference, not something worth obfuscating.
+ */
+const DECK_KEY = STORAGE_KEY_PREFIX + 'deck'
+
+export function getSavedDeckMode(): 'family' | 'masala' {
+  try {
+    return localStorage.getItem(DECK_KEY) === 'masala' ? 'masala' : 'family'
+  } catch {
+    return 'family'
+  }
+}
+
+export function saveDeckMode(mode: 'family' | 'masala'): void {
+  try {
+    localStorage.setItem(DECK_KEY, mode)
+  } catch {
+    /* storage unavailable (private mode) */
+  }
+}

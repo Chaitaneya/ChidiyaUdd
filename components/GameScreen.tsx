@@ -1,561 +1,347 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GameEntity, MultiplayerRoom, Player } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { DeckMode, GameEntity } from '../types';
 import { INITIAL_SPEED, MIN_SPEED, SPEED_DECREMENT, MAX_LIVES } from '../constants';
-import { fetchNewGameEntities } from '../services/geminiService';
-import { multiplayer } from '../services/multiplayerService';
+import { createDeck, getCall, minRoundMs, speechRateFor } from '../services/entityService';
 import { audio } from '../services/audioService';
 import Button from './Button';
+import IconButton from './IconButton';
+import GameCard, { Feedback } from './game/GameCard';
+import FeedbackText from './game/FeedbackText';
+import FlyButton from './game/FlyButton';
+import { Hearts, ScoreBox } from './game/Hud';
+import { useEffects } from './game/Effects';
 
 interface GameScreenProps {
   onGameOver: (score: number) => void;
   onExit: () => void;
   initialEntities: GameEntity[];
-  isMultiplayer?: boolean;
+  deckMode: DeckMode;
 }
 
-interface VisualEffect {
-  id: number;
-  type: 'feather' | 'smoke';
-  x: number; // percentage
-  y: number; // percentage
-  emoji: string;
-  delay: number;
-}
+const NEXT_ROUND_DELAY_MS = 1300;
+const AFTER_MISS_DELAY_MS = 2300; // a little longer, so the "why" can be read
+const PREFETCH_THRESHOLD = 15;
 
-const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEntities, isMultiplayer = false }) => {
+/** 0 at the starting speed, 1 at top speed. */
+const speedProgress = (curveMs: number) => (INITIAL_SPEED - curveMs) / (INITIAL_SPEED - MIN_SPEED);
+
+const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, onExit, initialEntities, deckMode }) => {
   const [entities, setEntities] = useState<GameEntity[]>(initialEntities);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
-  
-  // Game Speed Logic (Smooth Transitions)
-  const [gameSpeed, setGameSpeed] = useState(INITIAL_SPEED);
-  const [targetSpeed, setTargetSpeed] = useState(INITIAL_SPEED);
-  
-  // Gameplay Enhancements
   const [streak, setStreak] = useState(0);
-
-  // Multiplayer State
-  const [mpRoom, setMpRoom] = useState<MultiplayerRoom | null>(multiplayer.getRoom());
-  
-  // Game Loop State
   const [roundActive, setRoundActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(100); // Percentage
-  const [feedback, setFeedback] = useState<'hit' | 'miss' | 'safe' | null>(null);
+  const [timeLeft, setTimeLeft] = useState(100); // percentage
+  const [feedback, setFeedback] = useState<Feedback>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [isMuted, setIsMuted] = useState(audio.isMuted());
-  const [isEliminated, setIsEliminated] = useState(false);
-  
-  // Visual Effects State
-  const [effects, setEffects] = useState<VisualEffect[]>([]);
-  
+  const { layer: effectsLayer, burst } = useEffects();
+
+  // Refs mirror the game state so timers and the animation loop never read
+  // stale values (and so state updaters stay free of side effects).
+  const entitiesRef = useRef<GameEntity[]>(initialEntities);
+  const idxRef = useRef(0);
+  const scoreRef = useRef(0);
+  const livesRef = useRef(MAX_LIVES);
+  const streakRef = useRef(0);
+  const curveMsRef = useRef(INITIAL_SPEED); // difficulty curve
+  const targetCurveMsRef = useRef(INITIAL_SPEED);
+  const roundMsRef = useRef(INITIAL_SPEED); // this round's actual length
+  const roundStartRef = useRef(0);
+  const frozenAtRef = useRef(0);
+  const frozenRef = useRef(false);
+  const actedRef = useRef(true); // true whenever no round is accepting input
+  const pendingNextRoundRef = useRef(false);
+  const finishedRef = useRef(false);
+  const startedRef = useRef(false);
   const rafRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const pausedAtRef = useRef<number>(0);
-  const hasActedRef = useRef(false);
-  const spokenIdxRef = useRef<number>(-1);
-  const targetSpeedRef = useRef(INITIAL_SPEED);
+  const timeoutsRef = useRef(new Set<number>());
+  const onGameOverRef = useRef(onGameOver);
+  onGameOverRef.current = onGameOver;
 
-  const successEmojis = ['🐦', '💨', '🥶', '🔥'];
-  const failEmojis = ['🐔', '💀', '🐔', '😵‍💫'];
+  const frozen = isPaused || showQuitConfirm;
 
-  const getRandom = (arr: string[]) => {
-  return arr[Math.floor(Math.random() * arr.length)];
+  // ---------------- Helpers ----------------
+
+  /** setTimeout that is cancelled automatically if the screen unmounts. */
+  const later = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(() => {
+      timeoutsRef.current.delete(id);
+      fn();
+    }, ms);
+    timeoutsRef.current.add(id);
   };
 
-
-  // Sync ref with state for closure access
-  useEffect(() => {
-    targetSpeedRef.current = targetSpeed;
-  }, [targetSpeed]);
-
-  // Subscribe to Multiplayer Updates
-  useEffect(() => {
-    if (!isMultiplayer) return;
-
-    const unsubscribe = multiplayer.subscribe((updatedRoom) => {
-      setMpRoom(updatedRoom);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [isMultiplayer]);
-
-  // Watch for Multiplayer Game End
-  useEffect(() => {
-    if (!isMultiplayer || !mpRoom) return;
-
-    if (mpRoom.status === 'finished') {
-      // All players are eliminated - both players see game over
-      onGameOver(score);
-    }
-  }, [isMultiplayer, mpRoom?.status, score, onGameOver]);
-
-  // Sync Score/Lives to Network (debounced)
-  useEffect(() => {
-    if (!isMultiplayer) return;
-
-    // Send state update to network (debounced in service)
-    multiplayer.updatePlayerState(score, lives);
-  }, [score, lives, isMultiplayer]);
-
-  // Prefetch more entities when running low (Single Player Only)
-  useEffect(() => {
-    // In Multiplayer, the entity list is fixed by the host at start to ensure fairness
-    if (!isMultiplayer && entities.length - currentIdx < 15) {
-      fetchNewGameEntities().then(newEntities => {
-        setEntities(prev => [...prev, ...newEntities]);
-      });
-    }
-  }, [currentIdx, entities.length, isMultiplayer]);
-
-  // Clean up effects
-  useEffect(() => {
-    if (effects.length > 0) {
-      const timer = setTimeout(() => {
-        setEffects([]); 
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [effects]);
-
-  const triggerFeathers = () => {
-    const newEffects: VisualEffect[] = Array.from({ length: 12 }).map((_, i) => ({
-      id: Date.now() + i,
-      type: 'feather',
-      x: Math.random() * 90 + 5,
-      y: Math.random() * 10 + 5,
-      emoji: getRandom(successEmojis),
-      delay: Math.random() * 0.2
-    }));
-    setEffects(prev => [...prev, ...newEffects]);
+  const finishGame = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onGameOverRef.current(scoreRef.current);
   };
 
-  const triggerSmoke = () => {
-    const newEffects: VisualEffect[] = Array.from({ length: 5 }).map((_, i) => ({
-      id: Date.now() + i,
-      type: 'smoke',
-      x: 50 + (Math.random() * 20 - 10),
-      y: 40 + (Math.random() * 20 - 10),
-      emoji: getRandom(failEmojis),
-      delay: Math.random() * 0.2
-    }));
-    setEffects(prev => [...prev, ...newEffects]);
+  const speak = (entity: GameEntity) => {
+    audio.speak(getCall(entity), { rate: speechRateFor(speedProgress(curveMsRef.current)) });
   };
 
-  const endRound = useCallback((success: boolean, type: 'fly' | 'sit') => {
+  // ---------------- Round flow ----------------
+
+  const startRound = (idx: number) => {
+    if (finishedRef.current) return;
+    if (frozenRef.current) {
+      // Paused between rounds: start this one when play resumes.
+      pendingNextRoundRef.current = true;
+      return;
+    }
+
+    // Endless: append a fresh deck before running low.
+    if (entitiesRef.current.length - idx < PREFETCH_THRESHOLD) {
+      const deck = entitiesRef.current;
+      entitiesRef.current = [...deck, ...createDeck(deckMode, 'sp', deck[deck.length - 1])];
+      setEntities(entitiesRef.current);
+    }
+    const entity = entitiesRef.current[idx];
+
+    // Ease the difficulty curve towards its target so speed-ups feel smooth…
+    const diff = targetCurveMsRef.current - curveMsRef.current;
+    curveMsRef.current = Math.abs(diff) < 5 ? targetCurveMsRef.current : curveMsRef.current + diff * 0.1;
+    // …but always leave enough time to hear (and read) longer names.
+    const rate = speechRateFor(speedProgress(curveMsRef.current));
+    roundMsRef.current = Math.max(curveMsRef.current, minRoundMs(entity, rate));
+
+    idxRef.current = idx;
+    setCurrentIdx(idx);
+    setFeedback(null);
+    setTimeLeft(100);
+    setRoundActive(true);
+    actedRef.current = false;
+    roundStartRef.current = Date.now();
+
+    audio.playPop();
+    speak(entity);
+  };
+
+  const endRound = (success: boolean, action: 'fly' | 'wait') => {
+    if (actedRef.current) return;
+    actedRef.current = true;
     setRoundActive(false);
-    hasActedRef.current = true;
-    
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
     if (success) {
-      // Score calculation with Streak Bonus
-      setStreak(prev => {
-        const newStreak = prev + 1;
-        const streakBonus = Math.min(newStreak, 10) * 2; // Cap bonus multiplier
-        setScore(s => s + 10 + streakBonus);
-        return newStreak;
-      });
-      
-      setFeedback(type === 'fly' ? 'hit' : 'safe');
+      const newStreak = streakRef.current + 1;
+      streakRef.current = newStreak;
+      scoreRef.current += 10 + Math.min(newStreak, 10) * 2; // streak bonus, capped
+      setStreak(newStreak);
+      setScore(scoreRef.current);
+      setFeedback(action === 'fly' ? 'hit' : 'safe');
       audio.playSuccess();
-      
-      if (type === 'fly') {
-        triggerFeathers();
-        if (navigator.vibrate) navigator.vibrate(50);
+      if (action === 'fly') {
+        burst('feather');
+        navigator.vibrate?.(50);
       }
-
-      // Update Target Speed instead of Game Speed directly
-      setTargetSpeed(prev => Math.max(MIN_SPEED, prev - SPEED_DECREMENT));
-      
-      setTimeout(nextRound, 1300);
-    } else {
-      triggerSmoke();
-      setFeedback('miss');
-      setStreak(0);
-      audio.playFail();
-      if (navigator.vibrate) navigator.vibrate(200);
-
-      setLives((l) => {
-        const newLives = l - 1;
-
-        if (newLives <= 0) {
-          audio.playCrash();
-          audio.playGameOver();
-          if (navigator.vibrate) navigator.vibrate([200, 100, 400]);
-
-          if (isMultiplayer) {
-            multiplayer.updatePlayerState(score, 0);
-            setIsEliminated(true);
-          } else {
-            setTimeout(() => onGameOver(score), 1000);
-          }
-        } else {
-          setTimeout(nextRound, 1700);
-        }
-
-        return newLives;
-      });
-    }
-  }, [score, onGameOver, isMultiplayer]);
-
-  const nextRound = () => {
-    // If we ran out of entities (Multiplayer end condition usually)
-    if (currentIdx >= entities.length - 1) {
-        onGameOver(score);
-        return;
+      targetCurveMsRef.current = Math.max(MIN_SPEED, targetCurveMsRef.current - SPEED_DECREMENT);
+      later(() => startRound(idxRef.current + 1), NEXT_ROUND_DELAY_MS);
+      return;
     }
 
-    // Smoothly transition Game Speed towards Target Speed
-    setGameSpeed(prev => {
-        const diff = targetSpeedRef.current - prev;
-        // Snap to target if very close to avoid infinitesimal updates
-        if (Math.abs(diff) < 5) return targetSpeedRef.current;
-        // Move 10% of the way towards the target for a smooth curve
-        return prev + (diff * 0.1); 
-    });
+    burst('smoke');
+    setFeedback('miss');
+    streakRef.current = 0;
+    setStreak(0);
+    audio.playFail();
+    navigator.vibrate?.(200);
 
-    setFeedback(null);
-    setCurrentIdx(prev => prev + 1);
-    setTimeLeft(100);
-    setRoundActive(true);
-    hasActedRef.current = false;
-    startTimeRef.current = Date.now();
-    audio.playPop();
+    livesRef.current -= 1;
+    setLives(livesRef.current);
+
+    if (livesRef.current > 0) {
+      later(() => startRound(idxRef.current + 1), AFTER_MISS_DELAY_MS);
+      return;
+    }
+
+    audio.playCrash();
+    audio.playGameOver();
+    navigator.vibrate?.([200, 100, 400]);
+    later(finishGame, 1800);
   };
 
+  // ---------------- Lifecycle ----------------
+
+  // Start the first round once (React StrictMode runs mount effects twice in dev).
   useEffect(() => {
-    nextRound();
+    if (startedRef.current) return;
+    startedRef.current = true;
+    startRound(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const currentEntity = entities[currentIdx];
-
-  // Speak the entity name when a new round starts
+  // Cancel pending rounds/game-over timers if the player leaves mid-round.
   useEffect(() => {
-    if (roundActive && currentEntity && !isPaused && !showQuitConfirm && spokenIdxRef.current !== currentIdx) {
-      const textToSpeak = currentEntity.translation || currentEntity.name;
-      audio.speak(textToSpeak);
-      spokenIdxRef.current = currentIdx;
-    }
-  }, [currentIdx, roundActive, currentEntity, isPaused, showQuitConfirm]);
-
-  // Main Game Loop using requestAnimationFrame for smoothness
-  useEffect(() => {
-    if (!roundActive || isPaused || showQuitConfirm || !currentEntity || isEliminated) return;
-    const loop = () => {
-      const elapsed = Date.now() - startTimeRef.current;
-      const remainingPct = 100 - (elapsed / gameSpeed) * 100;
-
-      if (remainingPct <= 0) {
-        setTimeLeft(0);
-        if (hasActedRef.current) return; // Prevent double trigger
-        
-        // Time ran out logic
-        if (currentEntity.canFly) {
-            endRound(false, 'fly'); // Should have flown
-        } else {
-            endRound(true, 'sit'); // Correctly waited
-        }
-      } else {
-        setTimeLeft(remainingPct);
-        rafRef.current = requestAnimationFrame(loop);
-      }
-    };
-
-    rafRef.current = requestAnimationFrame(loop);
-
+    const timeouts = timeoutsRef.current;
     return () => {
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      timeouts.forEach((id) => clearTimeout(id));
+      timeouts.clear();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [roundActive, currentIdx, entities, gameSpeed, endRound, isPaused, showQuitConfirm, currentEntity]);
+  }, []);
+
+  // Pausing (or the quit dialog) freezes the round clock.
+  useEffect(() => {
+    if (frozen === frozenRef.current) return;
+    frozenRef.current = frozen;
+    if (frozen) {
+      frozenAtRef.current = Date.now();
+      audio.stopSpeaking();
+      return;
+    }
+    roundStartRef.current += Date.now() - frozenAtRef.current;
+    if (pendingNextRoundRef.current) {
+      pendingNextRoundRef.current = false;
+      startRound(idxRef.current + 1);
+    } else if (!actedRef.current) {
+      speak(entitiesRef.current[idxRef.current]); // pausing cut the call off
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frozen]);
+
+  // Round timer (requestAnimationFrame for a smooth bar).
+  useEffect(() => {
+    if (!roundActive || frozen) return;
+    const loop = () => {
+      const elapsed = Date.now() - roundStartRef.current;
+      const remaining = 100 - (elapsed / roundMsRef.current) * 100;
+      if (remaining <= 0) {
+        setTimeLeft(0);
+        // Time's up: waiting was right only if it can't fly.
+        const entity = entitiesRef.current[idxRef.current];
+        endRound(!entity.canFly, 'wait');
+        return;
+      }
+      setTimeLeft(remaining);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundActive, frozen, currentIdx]);
+
+  // Pause automatically when the tab is hidden.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden && !finishedRef.current) setIsPaused(true);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  // ---------------- Controls ----------------
 
   const handleFlyAction = () => {
-    if (!roundActive || hasActedRef.current || isPaused || showQuitConfirm) return;
-    // Resume audio context on user interaction for Android
+    if (actedRef.current || frozenRef.current) return;
     audio.resume();
     audio.playClick();
-    hasActedRef.current = true; 
-    
-    if (currentEntity.canFly) {
-      endRound(true, 'fly');
-    } else {
-      endRound(false, 'fly');
-    }
+    const entity = entitiesRef.current[idxRef.current];
+    endRound(entity.canFly, 'fly');
   };
 
   const handlePauseToggle = () => {
-    // Multiplayer cannot be paused by one person, this function is mostly for Single Player now
-    if (isMultiplayer) return;
-
-    // Resume audio context on user interaction for Android
     audio.resume();
     audio.playClick();
-    if (isPaused) {
-      const pauseDuration = Date.now() - pausedAtRef.current;
-      startTimeRef.current += pauseDuration;
-      setIsPaused(false);
-    } else {
-      pausedAtRef.current = Date.now();
-      setIsPaused(true);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    }
+    setIsPaused((p) => !p);
   };
 
   const handleMuteToggle = () => {
-    // Resume audio context on user interaction for Android
     audio.resume();
     const muted = audio.toggleMute();
     setIsMuted(muted);
     if (!muted) audio.playClick();
   };
 
-  const getFeedbackText = () => {
-    if (feedback === 'miss') return 'WRONG!';
-    if (feedback === 'hit') return 'GREAT!';
-    if (feedback === 'safe') return 'CORRECT!'; 
-    return '';
+  const handleExit = () => {
+    audio.stopSpeaking();
+    onExit();
   };
 
+  // Keyboard: Space/Enter = FLY, P = pause, Esc = pause / close dialog.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.code === 'Space' || e.key === 'Enter') {
+        if (frozenRef.current) return; // let focused dialog buttons handle it
+        e.preventDefault();
+        handleFlyAction();
+      } else if (e.key === 'p' || e.key === 'P') {
+        if (!showQuitConfirm) handlePauseToggle();
+      } else if (e.key === 'Escape') {
+        if (showQuitConfirm) setShowQuitConfirm(false);
+        else handlePauseToggle();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const currentEntity = entities[currentIdx];
   if (!currentEntity) return null;
 
-  const primaryName = currentEntity.name;
-  const secondaryName = currentEntity.translation ? `(${currentEntity.translation})` : null;
-
-  // --- Live Leaderboard Component for Multiplayer ---
-  const renderLeaderboard = () => {
-    if (!isMultiplayer || !mpRoom) return null;
-    
-    // Sort by: Alive first, then Score
-    const sortedPlayers = [...mpRoom.players].sort((a, b) => {
-        if (a.status === 'alive' && b.status !== 'alive') return -1;
-        if (b.status === 'alive' && a.status !== 'alive') return 1;
-        return b.score - a.score;
-    });
-
-    return (
-        <div className="absolute top-28 right-2 sm:right-4 z-30 flex flex-col gap-1 sm:gap-2 pointer-events-none opacity-90 max-w-xs">
-            {sortedPlayers.map(p => (
-                <div key={p.id} className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-md border-2 border-black shadow-[2px_2px_0_0_#000] text-[10px] sm:text-xs font-bold whitespace-nowrap overflow-hidden ${p.status === 'alive' ? 'bg-white' : 'bg-slate-400 grayscale'}`}>
-                    <span className="w-3 sm:w-4 flex-shrink-0">{p.status === 'alive' ? '🟢' : '💀'}</span>
-                    <span className="max-w-[50px] sm:max-w-[80px] truncate">{p.name}</span>
-                    <span className="text-blue-600 ml-auto flex-shrink-0">{p.score}</span>
-                </div>
-            ))}
-        </div>
-    );
-  };
+  // ---------------- Render ----------------
 
   return (
     <div className="flex flex-col items-center h-full w-full relative pt-4 pb-4 select-none">
+      {effectsLayer}
 
-      {isEliminated && (
-        <div className="absolute inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center gap-6">
-          <h2 className="text-3xl font-retro text-red-500 drop-shadow-[2px_2px_0_#000]">
-            YOU ARE OUT
-          </h2>
-
-          <div className="bg-slate-800 px-6 py-4 border-4 border-white shadow-[6px_6px_0_0_#000] text-green-400 font-retro text-2xl">
-            SCORE: {score}
-          </div>
-
-          <p className="text-slate-400 font-retro text-xs tracking-widest">
-            Waiting for other players...
-          </p>
-        </div>
-      )}
-      
-      {/* Effects Layer */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-50">
-        {effects.map((effect) => (
-          <div
-            key={effect.id}
-            className={effect.type === 'feather' ? 'animate-feather' : 'animate-smoke'}
-            style={{
-              left: `${effect.x}%`,
-              top: effect.type === 'smoke' ? `${effect.y}%` : undefined,
-              animationDelay: `${effect.delay}s`,
-              fontSize: effect.type === 'feather' ? '2.5rem' : '4rem'
-            }}
-          >
-            {effect.emoji}
-          </div>
-        ))}
-      </div>
-
-      {renderLeaderboard()}
-
-      {/* HUD - Fixed Layout */}
-      <div className="w-full max-w-md px-2 sm:px-4 h-12 sm:h-14 flex justify-between items-start z-20 font-retro relative shrink-0">
-        {/* Left: HP */}
-        <div className="flex flex-col items-start gap-0.5 sm:gap-1" role="status" aria-label={`Lives remaining: ${lives}`}>
-          <span className="text-red-400 text-[8px] sm:text-xs tracking-widest uppercase">
-            Health
-          </span>
-
-          <div className="flex gap-1 sm:gap-2 h-6 sm:h-8 items-center">
-          {Array.from({ length: MAX_LIVES }).map((_, i) => (
-            <div key={i} style={{ opacity: i < lives ? 1 : 0.3 }}>
-              <img
-                src={i < lives ? '/assets/emojis/heart.png' : '/assets/emojis/heartless.png'}
-                alt="heart"
-                className="w-6 h-6 sm:w-8 sm:h-8"
-                style={{ imageRendering: 'pixelated' }}
-              />
-            </div>
-          ))}
-          </div>
-        </div>
-        
-        {/* Right: Score & Controls */}
+      {/* HUD */}
+      <div className="w-full max-w-md px-2 sm:px-4 h-12 sm:h-14 flex justify-between items-start z-20 relative shrink-0">
+        <Hearts lives={lives} />
         <div className="flex items-center gap-3">
-          {/* SCORE */}
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-green-400 text-[10px] sm:text-xs tracking-widest uppercase">
-              Score
-            </span>
-            <div className="relative bg-slate-800 px-3 py-1 h-10 border-2 border-slate-500 shadow-[2px_2px_0_0_#000] text-green-400 text-sm sm:text-base flex items-center justify-center min-w-[80px]">
-              {score.toString().padStart(4, '0')}
-              {streak > 1 && (
-                <div className="absolute -bottom-3 right-0 text-[9px] text-orange-400 font-bold animate-pulse whitespace-nowrap bg-black px-1 border border-orange-500">
-                  🔥 x{streak}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* SOUND */}
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-slate-400 text-[10px] sm:text-xs tracking-widest uppercase">
-              Sound
-            </span>
-            <button
-              onClick={handleMuteToggle}
-              className="w-10 h-10 bg-slate-700 border-2 border-black flex items-center justify-center shadow-[2px_2px_0_0_#000] hover:bg-slate-600 active:translate-y-1 focus:outline-none"
-            >
-              <span className="text-xl leading-none -translate-y-[2px]">
-                {isMuted ? '🔇' : '🔊'}
-              </span>
-            </button>
-          </div>
-
-          {/* MENU / EXIT */}
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-slate-400 text-[10px] sm:text-xs tracking-widest uppercase">
-              {isMultiplayer ? 'Exit' : 'Menu'}
-            </span>
-            <button
-              onClick={isMultiplayer ? () => setShowQuitConfirm(true) : handlePauseToggle}
-              className={`
-                w-10 h-10 border-2 border-black flex items-center justify-center text-white text-lg leading-none shadow-[2px_2px_0_0_#000] active:translate-y-1 focus:outline-none transition-colors
-                ${
-                  isMultiplayer
-                    ? 'bg-red-600 hover:bg-red-500'
-                    : 'bg-slate-700 hover:bg-slate-600'
-                }
-              `}
-            >
-              {isMultiplayer ? '✕' : isPaused ? '▶' : '||'}
-            </button>
-          </div>
+          <ScoreBox score={score} streak={streak} />
+          <IconButton label="Sound" onClick={handleMuteToggle} ariaLabel={isMuted ? 'Unmute' : 'Mute'}>
+            {isMuted ? '🔇' : '🔊'}
+          </IconButton>
+          <IconButton label="Menu" onClick={handlePauseToggle} ariaLabel={isPaused ? 'Resume' : 'Pause'}>
+            {isPaused ? '▶' : '||'}
+          </IconButton>
         </div>
       </div>
 
       {/* Pause Overlay */}
-      {isPaused && !isMultiplayer && !showQuitConfirm && (
-        <div className="absolute inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-sm">
+      {isPaused && !showQuitConfirm && (
+        <div className="absolute inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center gap-6 backdrop-blur-xs animate-fade-in">
           <h2 className="text-3xl sm:text-4xl font-retro text-yellow-400 animate-pulse drop-shadow-[4px_4px_0_#000]">PAUSED</h2>
           <div className="flex flex-col gap-4 w-56 sm:w-64">
-             <Button onClick={handlePauseToggle} variant="secondary">RESUME</Button>
-             <Button onClick={() => setShowQuitConfirm(true)} variant="danger">EXIT GAME</Button>
+            <Button onClick={handlePauseToggle} variant="secondary">RESUME</Button>
+            <Button onClick={() => setShowQuitConfirm(true)} variant="danger">EXIT GAME</Button>
           </div>
+          <p className="hidden [@media(pointer:fine)]:block text-slate-500 font-retro text-[10px] tracking-widest">PRESS P TO RESUME</p>
         </div>
       )}
 
-      {/* Quit Confirmation Overlay - Stays within game container */}
+      {/* Quit Confirmation Overlay */}
       {showQuitConfirm && (
-        <div className="absolute inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center gap-6 backdrop-blur-sm rounded-none">
+        <div className="absolute inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center gap-6 backdrop-blur-xs animate-fade-in">
           <h2 className="text-2xl sm:text-3xl font-retro text-white drop-shadow-[4px_4px_0_#000]">LEAVE GAME?</h2>
           <div className="flex flex-col gap-4 w-56 sm:w-64">
-             <Button onClick={onExit} variant="danger">YES, LEAVE</Button>
-             <Button onClick={() => setShowQuitConfirm(false)} variant="secondary">CANCEL</Button>
+            <Button onClick={handleExit} variant="danger">YES, LEAVE</Button>
+            <Button onClick={() => setShowQuitConfirm(false)} variant="secondary">CANCEL</Button>
           </div>
         </div>
       )}
-      
+
       {/* Main Game Area */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md relative z-10 px-2 sm:px-4 min-h-0">
-         
-         <div className="h-12 sm:h-16 w-full flex items-center justify-center mb-1 sm:mb-2 shrink-0 relative">
-             {feedback && (
-              <div
-                className={`
-                  flex items-center justify-center
-                  text-3xl sm:text-4xl md:text-5xl
-                  font-retro animate-pop-in
-                  ${feedback === 'miss' ? 'text-red-500' : 'text-green-400'}
-                `}
-                style={{ textShadow: '3px 3px 0px #000' }}
-              >
-                {feedback === 'miss'
-                  ? 'WRONG!'
-                  : feedback === 'hit'
-                  ? 'GREAT!'
-                  : 'CORRECT!'}
-              </div>
-            )}
-         </div>
-         
-         <div className={`
-             relative bg-slate-200 border-4 border-black p-3 sm:p-6 shadow-[8px_8px_0_0_#000]
-             flex flex-col items-center gap-2 sm:gap-4 w-full max-w-xs sm:max-w-sm transition-transform duration-100
-             ${roundActive ? 'scale-100' : 'scale-95 opacity-80'}
-             ${feedback === 'miss' ? 'animate-shake bg-red-200' : ''}
-         `}>
-            
-            <div className="text-5xl sm:text-7xl md:text-9xl filter drop-shadow-md select-none py-1 sm:py-2">
-                {currentEntity.emoji}
-            </div>
-            
-            <div className="text-center w-full min-h-[3rem] sm:min-h-[4rem] flex flex-col justify-center">
-                <h2 className="text-lg sm:text-2xl md:text-3xl font-bold uppercase tracking-tight leading-none break-words line-clamp-2 text-black mb-0.5 sm:mb-1">
-                    {primaryName}
-                </h2>
-                {secondaryName && (
-                    <p className="text-base sm:text-xl md:text-2xl text-blue-800 font-hindi leading-none font-bold bg-white/50 px-2 py-0.5 sm:py-1 inline-block rounded border-2 border-transparent">
-                        {secondaryName}
-                    </p>
-                )}
-            </div>
-
-            <div className="w-full h-3 sm:h-4 bg-slate-800 border-2 border-black mt-1 sm:mt-2 relative overflow-hidden">
-                <div 
-                  className={`h-full border-r-2 border-black ${timeLeft < 30 ? 'bg-red-500' : 'bg-green-500'}`}
-                  style={{ width: `${timeLeft}%` }}
-                />
-            </div>
-         </div>
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md relative z-10 px-2 sm:px-4 min-h-0 pb-16">
+        <FeedbackText feedback={feedback} />
+        <GameCard
+          entity={currentEntity}
+          timeLeft={timeLeft}
+          active={roundActive}
+          feedback={feedback}
+          note={feedback === 'miss' ? currentEntity.why : null}
+        />
       </div>
 
-      <div className="w-full max-w-md px-2 sm:px-6 pb-4 sm:pb-6 pt-1 sm:pt-2 z-10 shrink-0">
-         <button
-            className={`
-              w-full py-4 sm:py-5 md:py-6 bg-blue-600 text-white font-retro text-lg sm:text-xl md:text-2xl border-4 border-black
-              shadow-[6px_6px_0_0_#000] active:translate-x-[4px] active:translate-y-[4px] active:shadow-[2px_2px_0_0_#000] transition-all
-              flex items-center justify-center gap-3 select-none
-              ${!roundActive ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-500'}
-              focus:outline-none
-            `}
-            onClick={handleFlyAction}
-            disabled={!roundActive || isEliminated}
-         >
-            FLY!
-         </button>
-      </div>
-
+      <FlyButton onClick={handleFlyAction} active={roundActive} />
     </div>
   );
 };

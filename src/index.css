@@ -1,3 +1,160 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/*
+ * Components live outside src/ (components/, App.tsx), so point Tailwind's
+ * class scanner at the project root explicitly.
+ */
+@source "../";
+
+@theme {
+  --font-retro: 'Press Start 2P', cursive;
+  --font-vt323: 'VT323', monospace;
+  /* Same mono stack as the entity name, with Devanagari-capable fallbacks */
+  --font-hindi: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    'Noto Sans Devanagari', 'Kohinoor Devanagari', 'Mangal', monospace;
+
+  --animate-pop-in: pop-in 0.2s steps(4);
+  --animate-shake: shake 0.3s steps(6);
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-slide-up: slide-up 0.25s ease-out;
+
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes shake {
+    0%, 100% { translate: 0 0; }
+    20%, 60% { translate: -6px 0; }
+    40%, 80% { translate: 6px 0; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@layer base {
+  /*
+   * Tailwind v4 compatibility: the UI was designed against Tailwind v3,
+   * where borders defaulted to gray-200 and buttons used a pointer cursor.
+   */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'VT323', monospace;
+    background-color: #020617;
+    color: white;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    /* No double-tap zoom or pull-to-refresh mid-game, but inner lists can still scroll */
+    touch-action: manipulation;
+    overscroll-behavior: none;
+  }
+
+  /* Chunky retro outline for keyboard users (mouse/touch clicks don't show it) */
+  :focus-visible {
+    outline: 3px solid var(--color-yellow-400);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Retro night sky gradient */
+  .theme-bg {
+    background: linear-gradient(180deg, #020617 0%, #172554 50%, #1e40af 100%);
+  }
+
+  .wiggle {
+    animation: wiggle 0.5s ease-in-out infinite;
+  }
+
+  /* Feathers that float down after a correct FLY */
+  .animate-feather {
+    position: absolute;
+    top: 0;
+    animation: float-down 0.5s ease-in forwards;
+    image-rendering: pixelated;
+  }
+
+  /* Smoke puff after a wrong answer */
+  .animate-smoke {
+    position: absolute;
+    animation: puff-out 0.8s ease-out forwards;
+    image-rendering: pixelated;
+  }
+
+  /* CRT scanline overlay */
+  .scanlines {
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0),
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.1) 50%,
+      rgba(0, 0, 0, 0.1)
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+@keyframes float-down {
+  0% { transform: translateY(-50px) rotate(0deg); opacity: 1; }
+  20% { transform: translateX(10px) rotate(20deg); }
+  40% { transform: translateX(-10px) rotate(-20deg); }
+  60% { transform: translateX(10px) rotate(20deg); }
+  100% { transform: translateY(100vh) rotate(45deg); opacity: 0; }
+}
+
+@keyframes puff-out {
+  0% { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Menu background clouds (each row is twice as wide, so -50% loops seamlessly) */
+@keyframes cloud-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

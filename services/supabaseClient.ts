@@ -1,14 +1,21 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error(
-    'Missing Supabase credentials!\n' +
-    'Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file\n' +
-    'See .env.example for details'
+export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    'Supabase is not configured: login and multiplayer are disabled.\n' +
+      'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (see .env.example).'
   )
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+/**
+ * `null` when the env vars are missing, so single player still works instead
+ * of the whole app crashing on load (createClient throws on an empty URL).
+ */
+export const supabase: SupabaseClient | null = isSupabaseConfigured
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null

@@ -4,35 +4,23 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './src/index.css';
 
-// Suppress chrome.runtime.lastError warnings from browser extensions
-if (typeof window !== 'undefined') {
-  const originalError = console.error;
-  console.error = function(...args: any[]) {
-    if (args[0]?.includes?.('runtime.lastError')) {
-      return;
-    }
-    originalError.apply(console, args);
-  };
-  
-  // Handle unhandled promise rejections from extensions
-  window.addEventListener('unhandledrejection', (event) => {
-    if (event.reason?.message?.includes?.('port') || 
-        event.reason?.toString?.()?.includes?.('closed')) {
-      event.preventDefault();
-    }
-  });
-}
-
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+  throw new Error('Could not find root element to mount to');
 }
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// Offline play: cache the game so single player and Leader Mode work without
+// internet. Only in production builds (it would fight Vite's hot reload in dev).
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('Offline mode unavailable:', err));
+  });
+}

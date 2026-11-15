@@ -6,6 +6,7 @@
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#020617" />
+  <meta name="description" content="Chidiya Udd! The classic Indian childhood game: tap FLY if it flies, wait if it doesn't. Play solo or with friends." />
 
   <!-- PWA / Mobile App Settings -->
   <link rel="manifest" href="/manifest.json" />
@@ -14,240 +15,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="application-name" content="Chidiya Udd" />
   <meta name="apple-mobile-web-app-title" content="Chidiya Udd" />
-  <link rel="icon" type="image/svg+xml" href="/211b3d63-5123-4750-bf29-ec1a0ffa5944-5.svg">
-
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" />
+
   <title>Chidiya Udd</title>
-  <script>
-    // Polyfill for process.env to prevent crashes on Netlify/Browser
-    window.process = {
-      env: {
-        API_KEY: '' // Empty key prevents crash; Service handles missing key gracefully
-      }
-    };
-  </script>
+
+  <!-- Paint the night sky before the CSS bundle loads (no white flash) -->
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html, body, #root {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    body {
-      font-family: 'VT323', monospace;
-      background-color: #020617;
-      color: white;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    /* Retro Night Sky Gradient - Darker & Lower Contrast */
-    .theme-bg {
-      background: linear-gradient(180deg, #020617 0%, #172554 50%, #1e40af 100%);
-    }
-
-    .font-retro {
-      font-family: 'Press Start 2P', cursive;
-    }
-
-    .wiggle {
-      animation: wiggle 0.5s ease-in-out infinite;
-    }
-
-    @keyframes wiggle {
-      0%, 100% {
-        transform: rotate(-3deg);
-      }
-      50% {
-        transform: rotate(3deg);
-      }
-    }
-
-    .pop-in {
-      animation: pop 0.2s steps(4);
-    }
-
-    @keyframes pop {
-      0% {
-        transform: scale(0.5);
-        opacity: 0;
-      }
-      100% {
-        transform: scale(1);
-        opacity: 1;
-      }
-    }
-
-    /* Pixelated Feather Confetti */
-    @keyframes float-down {
-      0% {
-        transform: translateY(-50px) rotate(0deg);
-        opacity: 1;
-      }
-      20% {
-        transform: translateX(10px) rotate(20deg);
-      }
-      40% {
-        transform: translateX(-10px) rotate(-20deg);
-      }
-      60% {
-        transform: translateX(10px) rotate(20deg);
-      }
-      100% {
-        transform: translateY(100vh) rotate(45deg);
-        opacity: 0;
-      }
-    }
-
-    .animate-feather {
-      position: absolute;
-      top: 0;
-      animation: float-down 0.5s ease-in forwards;
-      image-rendering: pixelated;
-    }
-
-    /* Smoke Puff Animation */
-    @keyframes puff-out {
-      0% {
-        transform: scale(0.5);
-        opacity: 0.8;
-      }
-      100% {
-        transform: scale(2.5);
-        opacity: 0;
-      }
-    }
-
-    .animate-smoke {
-      position: absolute;
-      animation: puff-out 0.8s ease-out forwards;
-      image-rendering: pixelated;
-    }
-
-    /* Cloud Animation */
-    @keyframes cloudScroll {
-      from {
-        transform: translateX(0);
-      }
-      to {
-        transform: translateX(-50%);
-      }
-    }
-
-    .animate-cloud-slow {
-      animation: cloudScroll 30s linear infinite;
-    }
-
-    .animate-cloud-fast {
-      animation: cloudScroll 20s linear infinite;
-    }
-
-    /* CRT Scanline Effect */
-    .scanlines {
-      background: linear-gradient(to bottom,
-        rgba(255, 255, 255, 0),
-        rgba(255, 255, 255, 0) 50%,
-        rgba(0, 0, 0, 0.1) 50%,
-        rgba(0, 0, 0, 0.1));
-      background-size: 100% 4px;
-      pointer-events: none;
-    }
-
-    /* Component-specific dimensions and sizing */
-    button {
-      font-family: 'Press Start 2P', cursive;
-      border: 4px solid black;
-      padding: 12px 16px;
-      font-size: clamp(0.75rem, 2vw, 1rem);
-      transition: all 0.1s;
-      cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
-    }
-
-    button:active {
-      transform: translate(4px, 4px);
-      box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 1);
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: translate(2px, 2px);
-      box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 1);
-    }
-
-    /* Modal sizing */
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      padding: 1.5rem;
-    }
-
-    .modal-content {
-      background: #0f172a;
-      border: 4px solid black;
-      padding: 1.5rem;
-      max-width: 480px;
-      width: 100%;
-      box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 1);
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    /* Game container sizing */
-    .game-container {
-      width: 100%;
-      height: 100%;
-      max-width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* Logo sizing */
-    .logo {
-      width: 120px;
-      height: 120px;
-      font-size: 3rem;
-      line-height: 1;
-    }
-
-    @media (max-width: 640px) {
-      button {
-        padding: 10px 12px;
-        font-size: 0.625rem;
-      }
-      .logo {
-        width: 80px;
-        height: 80px;
-        font-size: 2rem;
-      }
-      .modal-content {
-        padding: 1rem;
-      }
-    }
+    html, body { background-color: #020617; }
   </style>
-
 </head>
 
-<body class="bg-slate-950 text-slate-100 antialiased select-none overflow-hidden touch-none">
+<body>
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

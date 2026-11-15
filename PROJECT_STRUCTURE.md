@@ -1,140 +1,33 @@
-# 🏗️ Production-Grade Project Structure
+# 🏗️ Project Structure
 
-## File Organization (v2.0)
+The full file tree is in the [README](README.md#-project-structure). This page covers where things go when you change the game.
 
-```
-e:\chidiyaUdd\chidiyaUddV2/
-│
-├── 📂 components/
-│   ├── 📂 screens/              ← Full-page views
-│   │   ├── index.ts
-│   │   ├── MainMenu.tsx
-│   │   ├── GameScreen.tsx
-│   │   ├── GameOver.tsx
-│   │   ├── MultiplayerSetup.tsx
-│   │   └── Lobby.tsx
-│   │
-│   ├── 📂 common/               ← Reusable UI components
-│   │   ├── index.ts
-│   │   ├── Button.tsx
-│   │   ├── Logo.tsx
-│   │   └── ErrorBoundary.tsx
-│   │
-│   ├── 📂 modals/               ← Modal dialogs
-│   │   ├── index.ts
-│   │   └── LoginModal.tsx
-│   │
-│   ├── index.ts                 ← Main components export
-│   ├── Button.tsx               ← (legacy, kept for compatibility)
-│   ├── Logo.tsx                 ← (legacy, kept for compatibility)
-│   ├── LoginModal.tsx           ← (legacy, kept for compatibility)
-│   ├── ErrorBoundary.tsx        ← (legacy, kept for compatibility)
-│   ├── (other screen files)     ← (legacy, kept for compatibility)
-│   └── (other component files)
-│
-├── 📂 contexts/                 ← React Context for global state
-│   ├── UserContext.tsx          ← Authentication state
-│   └── ... (other contexts)
-│
-├── 📂 services/                 ← Business logic & API calls
-│   ├── authService.ts
-│   ├── multiplayerService.ts
-│   ├── audioService.ts
-│   ├── geminiService.ts
-│   └── supabaseClient.ts
-│
-├── 📂 utils/                    ← Utility functions
-│   └── storage.ts               ← Encrypted storage utilities
-│
-├── 📂 types/                    ← TypeScript type definitions
-│   └── index.ts
-│
-├── 📂 public/                   ← Static assets
-│   ├── assets/
-│   │   └── emojis/
-│   └── (images, fonts)
-│
-├── 📂 docs/                     ← Documentation
-│   ├── 📂 deployment/
-│   │   ├── VERCEL_DEPLOYMENT_GUIDE.md
-│   │   └── QUICK_DEPLOYMENT.md
-│   ├── 📂 setup/
-│   │   ├── SUPABASE_SETUP.md
-│   │   ├── AUTH_IMPLEMENTATION.md
-│   │   └── AUTH_QUICK_REFERENCE.md
-│   ├── 📂 security/
-│   │   ├── (security documentation)
-│   │   └── (best practices)
-│   └── 📂 architecture/
-│       └── (architecture docs)
-│
-├── App.tsx                      ← Main app component
-├── index.tsx                    ← Entry point
-├── index.html                   ← HTML template
-├── types.ts                     ← Global types
-├── constants.ts                 ← Global constants
-├── tsconfig.json                ← TypeScript config
-├── vite.config.ts               ← Build config
-├── package.json                 ← Dependencies
-├── vercel.json                  ← Deployment config
-└── .env.example                 ← Environment template
-```
+## Layout
 
----
+- **`components/`** holds the screens: `MainMenu`, `GameScreen` (single player), `MultiplayerGame` (synced rounds), `LeaderMode`, `GameOver`, `MultiplayerSetup`, `Lobby`. Import components directly, e.g. `import Button from './components/Button'`.
+- **`components/game/`** holds the pieces every game screen shares, so all modes look the same: `GameCard` (emoji, name, Hindi line, timer, 💡 note), `Hud` (hearts, score), `FeedbackText`, `FlyButton`, `Effects` (feathers/smoke).
+- **Shared UI:** `Button`, `IconButton` (square captioned top-bar button), `Modal`, `RuleList` (numbered rules with a hanging indent), `SegmentedControl` (two-option switch with one description line), `DeckPicker` (Family/Masala toggle and chooser), `Logo`, `LoginModal`, `ErrorBoundary`. Top-bar captions all use `CAPTION` from `game/Hud.tsx` so they line up.
+- **`services/`** holds logic with no UI: multiplayer rooms and the host's round loop, audio/speech, decks and timing, auth, the Supabase client.
+- **`contexts/UserContext.tsx`** is the login state shared across screens.
+- **`App.tsx`** decides which screen is shown (`GameState` in `types.ts`), remembers the chosen deck, and follows the multiplayer room to move players between lobby, game and results.
+- **`src/index.css`** holds Tailwind plus the custom retro classes (`theme-bg`, `scanlines`, `wiggle`, feather/smoke effects) and theme tokens (`font-retro`, `font-vt323`, `font-hindi`, `animate-pop-in`, `animate-shake`, `animate-fade-in`, `animate-slide-up`).
+- **`public/`** is copied to the site root unchanged: `sw.js` (offline), manifest, icons, images, sounds.
 
-## Component Import Patterns
+## Common Changes
 
-### Old (Still Works - Backward Compatible)
-```typescript
-import Button from './components/Button'
-import MainMenu from './components/MainMenu'
-import { ErrorBoundary } from './components/ErrorBoundary'
-```
+| To... | Edit |
+|-------|------|
+| Add or change cards | `CARDS` in `constants.ts`: `name` (how kids call it out), `hindi` (Devanagari, shown and spoken as "… उड़!"), `canFly`, `emoji`, a short `why`, and `masala: true` for grown-up humour. Follow the house rules at the top of the file. |
+| Tune difficulty | Single player `INITIAL_SPEED`/`MIN_SPEED`/`SPEED_DECREMENT`, multiplayer `SYNC_*`, leader mode `LEADER_*`, all in `constants.ts` |
+| Add a screen | New component in `components/`, a `GameState` value in `types.ts`, a branch in `App.tsx` |
+| Add a popup | Wrap content in `components/Modal.tsx` so it matches the others |
+| Change how names are spoken | `getCall` / `minRoundMs` in `services/entityService.ts`; voice choice in `services/audioService.ts` (always the best Hindi voice; English voices can't say "उड़") |
+| Add a multiplayer message | `services/multiplayerService.ts` (`enqueue` for room state, `sendNow` only for time-critical round messages) |
+| Change what works offline | `public/sw.js` (bump `VERSION` after editing it) |
 
-### New (Recommended - Organized)
-```typescript
-import { Button, Logo } from './components/common'
-import { MainMenu, GameScreen } from './components/screens'
-import { LoginModal } from './components/modals'
-import { ErrorBoundary } from './components/common'
-```
+## UI Conventions
 
-### Via Main Export (Best - Simplest)
-```typescript
-import { Button, MainMenu, GameScreen, LoginModal } from './components'
-```
-
----
-
-## Benefits
-
-✅ **Clear Organization** - Type-based folder structure
-✅ **Scalability** - Easy to add more components
-✅ **Maintainability** - Find files faster
-✅ **Backwards Compatible** - Old imports still work
-✅ **Clean Exports** - Index files for organized imports
-✅ **Production Ready** - Follows industry standards
-
----
-
-## Adding New Components
-
-### New Screen Component
-1. Create file: `components/screens/MyScreen.tsx`
-2. Export in: `components/screens/index.ts`
-3. Import: `import { MyScreen } from './components/screens'`
-
-### New Reusable Component  
-1. Create file: `components/common/MyComponent.tsx`
-2. Export in: `components/common/index.ts`
-3. Import: `import { MyComponent } from './components/common'`
-
-### New Modal
-1. Create file: `components/modals/MyModal.tsx`
-2. Export in: `components/modals/index.ts`
-3. Import: `import { MyModal } from './components/modals'`
-
----
-
-**Last Updated:** April 12, 2026  
-**Status:** ✅ Production-Grade Structure
+- Retro look: no rounded corners, `border-4 border-black`, hard shadows like `shadow-[4px_4px_0_0_#000]`, `font-retro` for labels.
+- Use `Button` for main actions, `IconButton` in top bars and `Modal` for dialogs; back navigation is the `←` in the top-left corner.
+- Pick colourful emoji for small buttons. Some of Apple's emoji are grey by design (👨‍👩‍👧 🔊 👥 📢) and look washed out at 18px. Add the invisible "emoji style" character `U+FE0F` (VS16) after symbols like ☕ so they render in colour instead of as a plain text glyph.
+- Start audio from a click handler (`audio.unlock()`) so sound and speech work on iOS.
